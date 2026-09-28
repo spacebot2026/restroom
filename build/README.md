@@ -1,13 +1,7 @@
 # 만드는 법
 
-`restroom-care.html` 은 claude.ai 시연판(아티팩트) 원본이다. 공개판 `index.html` 은 여기서 자동 변환해 만든다 — 공개판을 직접 고치지 말고 원본을 고친 뒤 다시 만든다.
+**2026-09-28 19:40 필드테스트판부터는 저장소 맨 위 `index.html` 이 원본이다.** 직접 고친다.
 
-```
-cd build
-mkdir -p public
-python3 make_public.py "$(cat firebase_config.json)"
-node --check public/app_check.js      # 문법 확인
-cp public/index.html ../index.html
-```
+이 폴더는 그 전 기록이다 — `restroom-care.html`(claude.ai 시연판 아티팩트 원본)을 `make_public.py` 로 변환해 첫 공개판(판 20260928-1825)을 만들었다. 필드테스트판은 여기에 현장(sites)·담당자(members)·홈 화면 아이콘을 더했으므로 이 변환을 다시 돌리면 안 된다.
 
 - Firestore 보안 규칙 원본은 이 저장소에 두지 않는다(관리자 이메일 포함) — Drive `화장실 불편접수 개발` 폴더의 규칙 백업 파일.

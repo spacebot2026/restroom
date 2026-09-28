@@ -1,0 +1,33 @@
+{
+  "id": "./?app=staff",
+  "name": "화장실 담당자 · 스페이스",
+  "short_name": "화장실 담당",
+  "description": "화장실 불편접수 — 담당자 앱",
+  "start_url": "./?app=staff",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2B01E",
+  "theme_color": "#111A26",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "icons/staff-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/staff-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/staff-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

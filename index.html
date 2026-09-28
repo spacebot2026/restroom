@@ -6,6 +6,22 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#111A26">
 <title>화장실 불편접수</title>
+<link rel="icon" href="icons/admin-192.png">
+<link rel="manifest" id="appManifest" href="admin.webmanifest">
+<link rel="apple-touch-icon" id="appTouch" href="icons/admin-180.png">
+<meta name="apple-mobile-web-app-title" id="appTitle" content="화장실 관리">
+<script>
+/* 주소에 따라 홈 화면 아이콘을 고른다: #staff·?app=staff → 담당자 앱, 고객 QR(#r-…) → 없음, 나머지 → 관리자 */
+(function () {
+  var h = location.hash || '', q = new URLSearchParams(location.search).get('app');
+  var k = /^#r-/i.test(h) ? '' : (h === '#staff' || (!h && q === 'staff')) ? 'staff' : 'admin';
+  var m = document.getElementById('appManifest'), t = document.getElementById('appTouch'), n = document.getElementById('appTitle');
+  if (!k) { m.parentNode.removeChild(m); t.parentNode.removeChild(t); return; }
+  m.href = k + '.webmanifest'; t.href = 'icons/' + k + '-180.png';
+  n.content = k === 'staff' ? '화장실 담당' : '화장실 관리';
+  document.title = k === 'staff' ? '화장실 담당자' : '화장실 관리';
+})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
@@ -567,6 +583,36 @@ body.fullmode main{padding:0}
 .acl{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
 .acl li{display:flex;align-items:center;gap:10px;font-size:13px}
 .acl li .mono{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* ---------- 필드테스트판: 현장·담당자·인쇄 ---------- */
+.bsec-site{margin:10px 0 4px;font-size:13px}
+.cell.s-none{visibility:hidden}
+.site-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;margin:0 0 14px}
+.site-card{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.site-card.sel{outline:2px solid var(--signal)}
+.site-card .sc-acts{display:flex;gap:6px;flex-shrink:0}
+.site-edit{margin:0 0 14px;display:grid;gap:10px}
+.se-grid{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.se-f{display:grid;gap:4px}
+.se-f input{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface);color:var(--text)}
+.se-rooms input.num{width:72px}
+.se-foot{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.fl-chips{display:flex;gap:4px;flex-wrap:wrap}
+.fl-chip{display:inline-flex;gap:3px;align-items:center;font-size:12px;border:1px solid var(--line);border-radius:12px;padding:2px 8px}
+.tbl.mem select{max-width:170px}
+#memBulk{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;background:var(--surface);color:var(--text)}
+.st-name{font-size:15px}
+#printArea{display:none}
+@media print{
+  @page{size:A4;margin:8mm}
+  body>*:not(#printArea){display:none!important}
+  html,body{background:#fff!important;padding:0!important}
+  #printArea{display:block!important}
+  .pp{display:grid;grid-template-columns:1fr 1fr;gap:6mm;break-after:page;page-break-after:always}
+  .pp:last-child{break-after:auto;page-break-after:auto}
+  .pp img{width:100%;height:auto;display:block}
+  .pp-foot{grid-column:1/-1;margin:0;font:9pt sans-serif;color:#5C6674;text-align:center}
+}
+@media (max-width:720px){.se-grid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -978,7 +1024,7 @@ body.fullmode main{padding:0}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20260928-1825';
+const BUILD = '20260928-1935';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1069,7 +1115,7 @@ const UIK = { q: 'field.qr.q', clean: 'field.qr.clean', sos: 'field.qr.sos', sen
 /* ================= 화면 편집 설정 (규칙 13) ================= */
 const DEF = {
   'menu.tab_overview': '한눈에 보기', 'menu.tab_qr': '고객 화면', 'menu.tab_staff': '담당자 앱', 'menu.tab_admin': '관리자 웹',
-  'menu.adm_dash': '현황판', 'menu.adm_list': '접수 목록', 'menu.adm_rooms': '화장실·QR', 'menu.adm_staff': '담당자', 'menu.adm_settings': '설정',
+  'menu.adm_dash': '현황판', 'menu.adm_list': '접수 목록', 'menu.adm_rooms': '현장·QR', 'menu.adm_staff': '담당자', 'menu.adm_settings': '설정',
   'menu.st_wait': '대기', 'menu.st_mine': '처리 중', 'menu.st_done': '오늘 완료',
   'field.tickets.id': '번호', 'field.tickets.time': '접수 시각', 'field.tickets.loc': '위치', 'field.tickets.issue': '불편 사항', 'field.tickets.reports': '신고', 'field.tickets.status': '상태', 'field.tickets.staff': '담당', 'field.tickets.dur': '걸린 시간',
   'field.detail.issue': '불편 사항', 'field.detail.reports': '신고 횟수', 'field.detail.cnote': '고객 설명', 'field.detail.staff': '담당자', 'field.detail.note': '관리자 메모', 'field.detail.timeline': '처리 기록', 'field.detail.photos': '사진',
@@ -1080,7 +1126,7 @@ Object.keys(UIK).forEach(k => { DEF[UIK[k]] = I18N.ko[k]; });
 Object.keys(I18N.ko.issues).forEach(c => { DEF['field.issue.' + c] = I18N.ko.issues[c]; });
 const LOCKED = new Set(['field.tickets.id', 'field.tickets.time', 'field.tickets.loc', 'field.tickets.status']);
 const UIKEY = /^(menu|scope|field)\.[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)?$/;
-const ROLE_KEYS = ['menu.tab_overview', 'menu.tab_qr', 'menu.tab_staff', 'menu.tab_admin'];
+const ROLE_KEYS = ['menu.tab_admin', 'menu.tab_staff', 'menu.tab_qr', 'menu.tab_overview'];
 const ADM_KEYS = ['menu.adm_dash', 'menu.adm_list', 'menu.adm_rooms', 'menu.adm_staff', 'menu.adm_settings'];
 const ST_KEYS = ['menu.st_wait', 'menu.st_mine', 'menu.st_done'];
 const DETAIL_KEYS = ['field.detail.issue', 'field.detail.reports', 'field.detail.cnote', 'field.detail.staff', 'field.detail.note', 'field.detail.timeline', 'field.detail.photos'];
@@ -1105,20 +1151,50 @@ function T(lang, k, vars) {
   return s;
 }
 
-/* ================= 현장 (예시: 5개 층 · 층마다 남녀 각 2곳) ================= */
-const SITE = '한빛센트럴타워';
-const FLOORS = ['5F', '4F', '3F', '2F', '1F'];
+/* ================= 현장 · 화장실 · 담당자 (Firestore sites · members) ================= */
+// 현장 문서 sites/{S01} = { id, name, address, rooms:[{ id:'S01-1F-M1', floor:'1F', type:'M', n:1, stalls, urinals }], roomIds, order }
+// 화장실 id 는 한 번 정하면 바뀌지 않는다(인쇄한 QR 주소가 그대로 유지되도록).
 const TYPE_KO = { W: '여자화장실', M: '남자화장실' };
 const TYPE_SHORT = { W: '여자', M: '남자' };
+let SITES = [], SITES_READY = false;
 const ROOMS = [];
-FLOORS.forEach(f => [['W', 1], ['W', 2], ['M', 1], ['M', 2]].forEach(([tp, n]) => {
-  ROOMS.push({ id: f + '-' + tp + n, floor: f, type: tp, n, stalls: tp === 'W' ? 4 : 2, urinal: tp === 'M' });
-}));
-const STAFF = [
-  { id: 's1', name: '김미숙', role: '청소', zone: ['5F', '4F', '3F'], zoneLabel: '3F–5F' },
-  { id: 's2', name: '이순자', role: '청소', zone: ['2F', '1F'], zoneLabel: '1F–2F' },
-  { id: 's3', name: '최영태', role: '시설', zone: FLOORS.slice(), zoneLabel: '전 층 · 수리' }
-];
+let FLOORS = [];
+const STAFF = [];
+const NOBODY = { id: '', name: '미배정', role: '', sites: [], floors: [], zoneLabel: '누구나' };
+const floorNum = f => { const m = /^B(\d+)F$/.exec(f || ''); return m ? -(+m[1]) : (parseInt(f, 10) || 0); };
+const byFloorDesc = (a, b) => floorNum(b) - floorNum(a);
+function normFloor(v) {
+  const s = String(v || '').trim().toUpperCase().replace(/\s|층/g, '').replace('지하', 'B');
+  let m = /^B(\d{1,2})F?$/.exec(s); if (m && +m[1] > 0) return 'B' + (+m[1]) + 'F';
+  m = /^(\d{1,2})F?$/.exec(s); if (m && +m[1] > 0) return (+m[1]) + 'F';
+  return '';
+}
+function rebuildRooms() {
+  ROOMS.length = 0;
+  const sites = SITES.slice().sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.id).localeCompare(String(b.id)));
+  sites.forEach(s => {
+    const rs = (s.rooms || []).slice().sort((a, b) => byFloorDesc(a.floor, b.floor) || (a.type === b.type ? a.n - b.n : (a.type === 'M' ? -1 : 1)));
+    rs.forEach(r => {
+      const dup = rs.filter(x => x.floor === r.floor && x.type === r.type).length > 1;
+      const urinals = Math.max(0, +r.urinals || 0);
+      ROOMS.push({ id: r.id, site: s.id, siteName: s.name || s.id, address: s.address || '', floor: r.floor, type: r.type, n: r.n || 1, dup, stalls: Math.max(0, +r.stalls || 0), urinals, urinal: urinals > 0 });
+    });
+  });
+  FLOORS = Array.from(new Set(ROOMS.map(r => r.floor))).sort(byFloorDesc);
+}
+const siteById = id => SITES.find(s => s.id === id);
+const siteFloors = sid => Array.from(new Set(ROOMS.filter(r => !sid || r.site === sid).map(r => r.floor))).sort(byFloorDesc);
+function zoneLabelOf(m) {
+  const s = (m.sites || []).length ? m.sites.map(id => (siteById(id) || {}).name || id).join(', ') : '모든 현장';
+  return s + ' · ' + ((m.floors || []).length ? m.floors.slice().sort(byFloorDesc).join('·') : '전 층');
+}
+function setMembers(list) {
+  STAFF.length = 0;
+  list.slice().sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.name).localeCompare(String(b.name), 'ko')).forEach(m => {
+    STAFF.push(Object.assign({ role: '청소', sites: [], floors: [] }, m, { zoneLabel: zoneLabelOf(Object.assign({ sites: [], floors: [] }, m)) }));
+  });
+}
+const covers = (m, room) => !!room && (!(m.sites || []).length || m.sites.includes(room.site)) && (!(m.floors || []).length || m.floors.includes(room.floor));
 const ISSUE_BASE = [
   { code: 'paper', icon: 'paper', sla: 10, cat: 'clean', stall: true },
   { code: 'soap', icon: 'soap', sla: 10, cat: 'clean', stall: false },
@@ -1149,7 +1225,7 @@ let TICKETS = [];
 let FEEDBACK = {};
 let DATA_READY = false;
 const rById = id => ROOMS.find(r => r.id === id);
-const sById = id => STAFF.find(s => s.id === id) || STAFF[0];
+const sById = id => STAFF.find(s => s.id === id) || NOBODY;
 const tById = id => TICKETS.find(t => t.id === id);
 const issueDef = code => code === 'sos' ? SOS_DEF : (OPS.issues.find(i => i.code === code) || { code, icon: 'etc', sla: 30, cat: 'clean', stall: false });
 function issueLabel(code, lang = 'ko') {
@@ -1157,14 +1233,30 @@ function issueLabel(code, lang = 'ko') {
   if (lang !== 'ko' && I18N[lang] && I18N[lang].issues[code]) return I18N[lang].issues[code];
   return L('field.issue.' + code);
 }
-const sideName = (r, lang = 'ko') => T(lang, r.n === 1 ? 'east' : 'west');
-const stallKo = s => s === 'U' ? '소변기' : s + '번 칸';
-const stallName = (s, lang) => s === 'U' ? T(lang, 'urinal') : T(lang, 'stall', { n: s });
-const roomLabel = id => { const r = rById(id); return r ? `${r.floor} ${sideName(r)} ${TYPE_KO[r.type]}` : id; };
-const roomShort = r => `${r.floor} ${TYPE_SHORT[r.type]}·${sideName(r)}`;
+const roomNo = r => r.dup ? ' ' + r.n : '';
+const manySites = () => SITES.length > 1;
+const sitePre = r => manySites() ? r.siteName + ' ' : '';
+const stallKo = s => { s = String(s); return s === 'U' ? '소변기' : /^U\d+$/.test(s) ? '소변기 ' + s.slice(1) : s + '번 칸'; };
+const stallName = (s, lang) => { s = String(s); return s === 'U' ? T(lang, 'urinal') : /^U\d+$/.test(s) ? T(lang, 'urinal') + ' ' + s.slice(1) : T(lang, 'stall', { n: s }); };
+const roomLabel = id => { const r = rById(id); return r ? `${sitePre(r)}${r.floor} ${TYPE_KO[r.type]}${roomNo(r)}` : id; };
+const roomShort = r => `${sitePre(r)}${r.floor} ${TYPE_SHORT[r.type]}${roomNo(r)}`;
 const locShort = t => { const r = rById(t.roomId); return r ? roomShort(r) + (t.stall ? ' · ' + stallKo(t.stall) : '') : t.roomId; };
 const locLong = t => roomLabel(t.roomId) + (t.stall ? ' · ' + stallKo(t.stall) : '');
-function zoneStaff(room, cat) { if (cat === 'fac') return STAFF.find(s => s.role === '시설'); return STAFF.find(s => s.role === '청소' && s.zone.includes(room.floor)) || STAFF[0]; }
+function assigneeName(t) {
+  if (t.staffId) return sById(t.staffId).name;
+  if (!isOpen(t)) return '—';
+  const z = zoneStaff(rById(t.roomId), catOf(t));
+  return z.id ? z.name + ' (자동)' : '미배정';
+}
+// 배정: 접수 때는 미배정으로 두고(고객 화면은 담당자 명단을 읽지 않음), 화면에서 그때그때 계산한다.
+// 그 화장실을 맡은 사람이 딱 한 명이면 그 사람, 여럿이거나 없으면 맡은 사람 모두에게 알림 · 먼저 「출동하기」를 누른 사람이 맡음
+const catOf = t => t.toFac ? 'fac' : (t.emergency ? 'clean' : issueDef(t.issue).cat);
+function zoneStaff(room, cat) {
+  if (!room) return NOBODY;
+  const want = cat === 'fac' ? '시설' : '청소';
+  const c = STAFF.filter(m => m.role === want && covers(m, room));
+  return c.length === 1 ? c[0] : NOBODY;
+}
 const isOpen = t => t.status === 'new' || t.status === 'going';
 function isOver(t) { if (t.status === 'cancel') return false; const end = t.status === 'done' ? t.doneAt : Date.now(); return end - t.createdAt > issueDef(t.issue).sla * M; }
 const isToday = t => kstDay(t.createdAt) === kstDate();
@@ -1259,17 +1351,18 @@ async function createTicket({ roomId, issue, stall = null, note = '', photo = nu
     }
   }
   const iss = issueDef(issue);
-  const t = { id: newIdAt(now), roomId, issue, stall, channel: 'qr', note, photo, afterPhoto: null, emergency, status: 'new', createdAt: now, ackAt: null, doneAt: null, staffId: zoneStaff(room, emergency ? 'clean' : iss.cat).id, reports: 1, reopened: 0, action: null, doneNote: '', adminNote: '', dev: DEVICE, uid: AUTH.user ? AUTH.user.uid : '', log: [{ t: now, text: '접수 · QR' }] };
+  if (!room) throw { code: 'no-room' };
+  const t = { id: newIdAt(now), siteId: room.site, roomId, issue, stall, channel: 'qr', note, photo, afterPhoto: null, emergency, status: 'new', createdAt: now, ackAt: null, doneAt: null, staffId: '', reports: 1, reopened: 0, action: null, doneNote: '', adminNote: '', dev: DEVICE, uid: AUTH.user ? AUTH.user.uid : '', log: [{ t: now, text: '접수 · QR' }] };
   if (emergency) t.log.push({ t: now, text: '방재실에 함께 알림' });
   await putTicket(t);
   return { dup: false, id: t.id };
 }
 const addLog = (t, text) => (t.log || []).concat([{ t: Date.now(), text }]);
-function ackTicket(t, sid) { const s = sById(sid); return patchTicket(t.id, { status: 'going', ackAt: Date.now(), staffId: s.id, log: addLog(t, '출동 · ' + s.name) }, 'ack'); }
+function ackTicket(t, sid) { const s = sById(sid); return patchTicket(t.id, { status: 'going', ackAt: Date.now(), staffId: s.id, log: addLog(t, '출동 · ' + (s.id ? s.name : (AUTH.email || '관리자'))) }, 'ack'); }
 function completeTicket(t, { action, photo, note, by }) {
   if (action === '시설팀으로 넘김') {
-    const fac = STAFF.find(s => s.role === '시설');
-    return patchTicket(t.id, { staffId: fac.id, status: 'new', ackAt: null, log: addLog(t, '시설팀으로 넘김 · ' + sById(by).name + (note ? ' · ' + note : '')) }, 'new');
+    const fac = zoneStaff(rById(t.roomId), 'fac');
+    return patchTicket(t.id, { staffId: fac.id, toFac: true, status: 'new', ackAt: null, log: addLog(t, '시설팀으로 넘김 · ' + sById(by).name + (note ? ' · ' + note : '')) }, 'new');
   }
   const patch = { status: 'done', doneAt: Date.now(), action, doneNote: note || '', log: addLog(t, '조치 완료 · ' + action + (note ? ' · ' + note : '')) };
   if (photo) patch.afterPhoto = photo;
@@ -1282,52 +1375,14 @@ async function addClean(roomId) {
 }
 function etaMin(code) { const d = TICKETS.filter(t => t.issue === code && t.status === 'done'); if (!d.length) return issueDef(code).sla; return Math.max(1, Math.round(d.reduce((a, t) => a + (t.doneAt - t.createdAt), 0) / d.length / M)); }
 
-/* 예시 자료 (저장소가 없을 때 · 관리자 「예시 자료 넣기」) */
-function genDemo() {
-  const rnd = mulberry32(Math.floor(Date.now() / 3600000));
-  const now = Date.now(), out = [];
-  const R = id => rById(id);
-  const wpick = pairs => { const s = pairs.reduce((a, p) => a + p[1], 0); let r = rnd() * s; for (const p of pairs) { if ((r -= p[1]) < 0) return p[0]; } return pairs[0][0]; };
-  const roomW = ROOMS.filter(r => r.id !== '5F-W2').map(r => [r, (r.floor === '1F' || r.floor === '3F') ? 2 : 1]);
-  const issueW = [['paper', 30], ['soap', 12], ['floor', 14], ['trash', 12], ['clog', 9], ['odor', 8], ['sink', 6], ['light', 4], ['etc', 5]];
-  const mk = (room, code, ageMin, o = {}) => {
-    const iss = issueDef(code), created = now - ageMin * M;
-    const st = zoneStaff(room, o.emergency ? 'clean' : iss.cat);
-    const stall = o.stall != null ? o.stall : (iss.stall && rnd() < 0.7 ? 1 + Math.floor(rnd() * room.stalls) : null);
-    const t = { id: newIdAt(created, rnd), roomId: room.id, issue: code, stall, channel: 'qr', note: o.note || '', photo: null, afterPhoto: null, emergency: !!o.emergency, status: 'new', createdAt: created, ackAt: null, doneAt: null, staffId: st.id, reports: o.reports || 1, reopened: 0, action: null, doneNote: '', adminNote: '', dev: 'demo', demo: true, log: [{ t: created, text: '접수 · QR' }] };
-    if (o.reports > 1) t.log.push({ t: created + 4 * M, text: '추가 신고 ' + (o.reports - 1) + '회 · 한 건으로 묶음' });
-    if (o.emergency) t.log.push({ t: created, text: '방재실에 함께 알림' });
-    if (o.status === 'going' || o.status === 'done') {
-      const ack = o.ack != null ? o.ack : (1 + rnd() * 5 + (st.id === 's1' ? rnd() * 8 : 0));
-      t.ackAt = created + ack * M; t.status = 'going'; t.log.push({ t: t.ackAt, text: '출동 · ' + st.name });
-    }
-    if (o.status === 'done') {
-      const fix = o.fix != null ? o.fix : (2 + rnd() * 8);
-      t.doneAt = t.ackAt + fix * M; t.status = 'done'; t.action = ACTION_PRIMARY[code] || '조치 완료';
-      t.log.push({ t: t.doneAt, text: '조치 완료 · ' + t.action });
-    }
-    out.push(t);
-  };
-  for (let i = 0; i < 16; i++) mk(wpick(roomW), wpick(issueW), 35 + rnd() * (8 * 60 - 35), { status: 'done' });
-  [150, 132, 118, 101].forEach(a => mk(R('3F-W1'), 'paper', a, { status: 'done' }));
-  mk(R('1F-M1'), 'sos', 230, { status: 'done', emergency: true, ack: 1, fix: 5 });
-  mk(R('4F-M2'), 'floor', 4, {});
-  mk(R('2F-W1'), 'soap', 9, { note: '왼쪽 세면대 비누통이 비어 있어요' });
-  mk(R('3F-W2'), 'trash', 12, { status: 'going', ack: 3 });
-  mk(R('5F-M1'), 'clog', 21, { reports: 3, stall: 2, note: '2번 칸 물이 안 내려가요' });
-  mk(R('1F-W2'), 'sink', 17, { status: 'going', ack: 4 });
-  return out;
-}
-function demoFeedback() { const rnd = mulberry32(7); const f = {}; ROOMS.forEach(r => { const n = Math.floor(rnd() * 4); if (n) f[r.id] = n; }); f['5F-W2'] = 6; f['3F-W1'] = 2; return f; }
-
 /* ================= 상태·화면 ================= */
-const S = { view: 'overview', full: null, fullRoom: null, editing: false, qrRoom: '3F-W1', openPopup: '' };
-const AS = { sub: 'dash', f: { status: 'all', floor: '', issue: '', q: '', room: '', period: 'today' }, selRoom: '3F-W1', el: null };
-const SS = { staffId: LS.get('rc-staff') || 's1', scope: 'zone', tab: 'wait', sheet: null, act: null, pblob: null, purl: null, note: '', saving: false, el: null, draw: null, fresh: '', sound: false };
+const S = { view: 'admin', full: null, fullRoom: null, editing: false, qrRoom: '', openPopup: '' };
+const AS = { sub: 'dash', site: LS.get('rc-site') || '', f: { status: 'all', floor: '', issue: '', q: '', room: '', period: 'today' }, selRoom: '', edit: null, el: null };
+const SS = { staffId: LS.get('rc-staff') || '', scope: 'zone', tab: 'wait', sheet: null, act: null, pblob: null, purl: null, note: '', saving: false, el: null, draw: null, fresh: '', sound: false };
 const QS = { roomId: null, step: 'home', lang: 'ko', issue: null, stall: null, note: '', pblob: null, purl: null, res: null, sending: false, msg: '', pendingLast: null, el: null, draw: null };
 let MOUNTS = [];
 let DETAIL_OPEN = null;
-const SCREEN_NAMES = { overview: '한눈에 보기', qr: '고객 화면', staff: '담당자 앱', 'admin.dash': '관리자 › 현황판', 'admin.list': '관리자 › 접수 목록', 'admin.rooms': '관리자 › 화장실·QR', 'admin.staff': '관리자 › 담당자', 'admin.settings': '관리자 › 설정' };
+const SCREEN_NAMES = { overview: '한눈에 보기', qr: '고객 화면', staff: '담당자 앱', 'admin.dash': '관리자 › 현황판', 'admin.list': '관리자 › 접수 목록', 'admin.rooms': '관리자 › 현장·QR', 'admin.staff': '관리자 › 담당자', 'admin.settings': '관리자 › 설정' };
 function curScreen() { if (S.full === 'customer') return 'qr'; if (S.full === 'staff') return 'staff'; return S.view === 'admin' ? 'admin.' + AS.sub : S.view; }
 function screenName() { return (SCREEN_NAMES[curScreen()] || curScreen()) + (S.full ? ' (휴대폰)' : ''); }
 
@@ -1363,7 +1418,7 @@ function render() {
   document.body.classList.toggle('fullmode', !!S.full);
   applyRoleUI();
   const isAdmin = AUTH.role === 'admin', isStaffish = isAdmin || AUTH.role === 'staff';
-  if (S.full === 'customer') { $('#roles').innerHTML = ''; st.innerHTML = '<div class="full" id="fullC"></div>'; mountQR($('#fullC'), { roomId: S.fullRoom, full: true }); }
+  if (S.full === 'customer') { $('#roles').innerHTML = ''; if (!SITES_READY) st.innerHTML = '<div class="full"><p class="loading">불러오는 중…</p></div>'; else if (!rById(S.fullRoom)) st.innerHTML = '<div class="full"><div class="gate"><div class="card gate-card"><h2>등록되지 않은 QR입니다</h2><p class="hint" style="margin:0">QR 스티커가 바뀌었을 수 있습니다. 관리 직원에게 알려 주세요.</p></div></div></div>'; else { st.innerHTML = '<div class="full" id="fullC"></div>'; mountQR($('#fullC'), { roomId: S.fullRoom, full: true }); } }
   else if (S.full === 'staff') { $('#roles').innerHTML = ''; if (isStaffish) { st.innerHTML = '<div class="full" id="fullS"></div>'; mountStaff($('#fullS'), { full: true }); } else st.innerHTML = `<div class="full">${gateHTML('staff')}</div>`; }
   else if (!isAdmin) { $('#roles').innerHTML = ''; st.innerHTML = gateHTML('admin'); }
   else if (renderRoles(), S.view === 'overview') viewOverview(st);
@@ -1376,24 +1431,28 @@ function render() {
 function route() {
   const h = decodeURIComponent((location.hash || '').slice(1));
   S.full = null;
-  if (/^r-/i.test(h)) { const id = h.slice(2).toUpperCase(); if (rById(id)) { S.full = 'customer'; S.fullRoom = id; } }
-  else if (h === 'staff') S.full = 'staff';
+  const app = new URLSearchParams(location.search).get('app');
+  if (/^r-/i.test(h)) { S.full = 'customer'; S.fullRoom = h.slice(2).toUpperCase(); }
+  else if (h === 'staff' || (!h && app === 'staff')) S.full = 'staff';
   else if (h === 'admin') S.view = 'admin';
   closeDetail();
   render();
   if (S.full === 'customer' && AUTH.ready && !AUTH.user) AUTHX.signInAnonymously().catch(() => {});
 }
 function notesHTML(title, items) { return `<p class="dnotes-h">${esc(title)}</p><ul class="dnotes">${items.map(x => `<li>${x}</li>`).join('')}</ul>`; }
-function roomOptions(sel) { return FLOORS.map(f => `<optgroup label="${f}">${ROOMS.filter(r => r.floor === f).map(r => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(roomLabel(r.id))}</option>`).join('')}</optgroup>`).join(''); }
+function roomOptions(sel) { return SITES.map(st => siteFloors(st.id).map(f => `<optgroup label="${esc(st.name)} ${f}">${ROOMS.filter(r => r.site === st.id && r.floor === f).map(r => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(roomLabel(r.id))}</option>`).join('')}</optgroup>`).join('')).join(''); }
+const pickRoom = id => rById(id) ? id : (ROOMS[0] ? ROOMS[0].id : '');
+const noSiteHTML = () => `<div class="card" style="max-width:520px;margin:24px auto"><h3>아직 등록된 현장이 없습니다</h3><p class="hint" style="margin:0 0 10px">관리자 › ${esc(L('menu.adm_rooms'))}에서 현장과 화장실을 먼저 등록하세요.</p><button type="button" class="b primary" data-view="admin" data-gosub="rooms">현장 등록하러 가기</button></div>`;
 
 function viewOverview(st) {
+  S.qrRoom = pickRoom(S.qrRoom); if (!S.qrRoom) { st.innerHTML = noSiteHTML(); return; }
   st.innerHTML = `<div class="ov">
     <div class="ov-col"><div class="cap"><b>① 고객</b>QR을 찍은 휴대폰<label class="room-pick"><select id="ovRoom" aria-label="찍은 QR">${roomOptions(S.qrRoom)}</select></label></div><div class="dev-phone"><div class="pscreen" id="ovC"></div></div></div>
     <div class="ov-col"><div class="cap"><b>② 담당자</b>청소·시설 담당 휴대폰</div><div class="dev-phone"><div class="pscreen" id="ovS"></div></div></div>
     <div class="ov-col adm-live"><div class="cap"><b>③ 직접 해 보기 · 관리자</b></div>
       <div class="card try"><h3>휴대폰으로 직접 찍어 보기</h3>
         <div class="try-grid"><figure><div class="qrbox" id="tryC"></div><figcaption><b>고객</b> · ${esc(roomLabel(S.qrRoom))}<br>찍으면 이 화장실 접수 화면</figcaption></figure><figure><div class="qrbox" id="tryS"></div><figcaption><b>담당자 앱</b><br>두 번째 휴대폰으로 찍기</figcaption></figure></div>
-        <p class="hint" style="margin:0">휴대폰에서 접수하면 이 화면의 담당자 폰과 관리자 숫자가 바로 바뀝니다. 실제 스티커는 관리자 웹 › 화장실·QR에서 A4로 저장합니다.</p></div>
+        <p class="hint" style="margin:0">휴대폰에서 접수하면 이 화면의 담당자 폰과 관리자 숫자가 바로 바뀝니다. 실제 스티커는 관리자 › 현장·QR에서 인쇄합니다.</p></div>
       <div id="ovA"></div></div>
   </div>`;
   mountQR($('#ovC'), { roomId: S.qrRoom });
@@ -1404,6 +1463,7 @@ function viewOverview(st) {
   $('#ovRoom').onchange = e => { S.qrRoom = e.target.value; render(); };
 }
 function viewQR(st) {
+  S.qrRoom = pickRoom(S.qrRoom); if (!S.qrRoom) { st.innerHTML = noSiteHTML(); return; }
   st.innerHTML = `<div class="split">
     <div style="display:grid;gap:8px"><label class="room-pick">찍은 QR <select id="qRoom">${roomOptions(S.qrRoom)}</select></label><div class="dev-phone"><div class="pscreen" id="qrP"></div></div></div>
     <aside class="side">
@@ -1423,11 +1483,11 @@ function viewStaff(st) {
   st.innerHTML = `<div class="split">
     <div class="dev-phone"><div class="pscreen" id="stP"></div></div>
     <aside class="side">
-      <div class="card try"><h3>담당자 휴대폰에서 열기</h3><div style="display:flex;gap:14px;align-items:center"><div class="qrbox" id="tryS2"></div><p class="hint" style="margin:0">찍으면 담당자 앱이 휴대폰 화면 가득 열립니다. 처음 한 번 Google 로그인 → 위쪽에서 담당자 이름을 고르고 「알림음 켜기」를 누르세요.</p></div></div>
+      <div class="card try"><h3>담당자 휴대폰에서 열기</h3><div style="display:flex;gap:14px;align-items:center"><div class="qrbox" id="tryS2"></div><p class="hint" style="margin:0">찍으면 담당자 앱이 휴대폰 화면 가득 열립니다. 처음 한 번 회사 Google 계정으로 로그인하면 본인 이름으로 열립니다. 「알림음 켜기」를 누르고 화면을 켜 두세요. 홈 화면에 추가하면 앱처럼 씁니다.</p></div></div>
       ${notesHTML('설계 메모', [
         '<b>알림이 먼저 옵니다</b> — 새 접수는 위쪽 알림과 알림음·진동으로 옵니다. 긴급 도움은 빨간 알림입니다.',
         '<b>시간이 색으로 보입니다</b> — 항목마다 정한 기준 시간의 70%가 지나면 주황, 넘으면 빨강입니다.',
-        '<b>청소와 수리를 나눕니다</b> — 휴지·비누·바닥은 층 담당에게, 세면대·조명은 시설 담당에게 갑니다. 「시설팀으로 넘김」을 고르면 시설 담당 대기로 넘어갑니다.',
+        '<b>청소와 수리를 나눕니다</b> — 휴지·비누·바닥은 청소 담당에게, 세면대·조명은 시설 담당에게 갑니다. 맡은 사람이 여럿이면 모두에게 알리고 먼저 출동한 사람이 맡습니다.',
         '<b>조치 후 사진</b> — 관리자 화면에서 원본 크기로 봅니다.'
       ])}
     </aside></div>`;
@@ -1467,7 +1527,7 @@ function mountQR(el, ctx) {
   draw();
   MOUNTS.push({ refresh: () => { if (QS.el === el && (QS.step === 'sent' || QS.step === 'sos' || (QS.step === 'home' && QS.pendingLast))) draw(); } });
 }
-function stallOpts(room) { const a = []; for (let n = 1; n <= room.stalls; n++) a.push(n); if (room.urinal) a.push('U'); a.push('?'); return a; }
+function stallOpts(room, code) { const a = []; for (let n = 1; n <= room.stalls; n++) a.push(n); if (code === 'paper') { /* 소변기는 휴지와 무관 */ } else if (room.urinals === 1) a.push('U'); else for (let n = 1; n <= room.urinals; n++) a.push('U' + n); a.push('?'); return a; }
 function issueCodes() { GROUPS.issue = OPS.issues.map(i => 'field.issue.' + i.code); return ordered(GROUPS.issue).map(k => k.slice(12)); }
 function trackHTML(t, lang) {
   const on2 = t.status === 'going' || t.status === 'done', on3 = t.status === 'done';
@@ -1475,7 +1535,7 @@ function trackHTML(t, lang) {
 }
 function qrHTML(ctx) {
   const room = rById(ctx.roomId), lang = QS.lang, ko = lang === 'ko';
-  const head = `<div class="qa-top">${ctx.full ? '' : `<div class="sbar"><span>${hm(Date.now())}</span><span>5G</span></div>`}<div class="qa-head"><div class="qa-floor">${room.floor}</div><div class="qa-pict">${pictSvg(room.type)}</div><div class="qa-where"><b>${esc(T(lang, room.type))} · ${esc(sideName(room, lang))}</b><span>${esc(T(lang, 'site'))}</span></div><select class="qa-lang" data-in="qlang" aria-label="언어 · Language">${LANGS.map(l => `<option value="${l}" ${l === lang ? 'selected' : ''}>${LANGNAME[l]}</option>`).join('')}</select></div></div>`;
+  const head = `<div class="qa-top">${ctx.full ? '' : `<div class="sbar"><span>${hm(Date.now())}</span><span>5G</span></div>`}<div class="qa-head"><div class="qa-floor">${room.floor}</div><div class="qa-pict">${pictSvg(room.type)}</div><div class="qa-where"><b>${esc(T(lang, room.type))}${room.dup ? ' ' + room.n : ''}</b><span>${esc(room.siteName)}</span></div><select class="qa-lang" data-in="qlang" aria-label="언어 · Language">${LANGS.map(l => `<option value="${l}" ${l === lang ? 'selected' : ''}>${LANGNAME[l]}</option>`).join('')}</select></div></div>`;
   let body = '';
   if (['home', 'detail', 'sosAsk'].includes(QS.step)) {
     body = `<div class="qa-body"><span class="qa-chip">${svg('qr')}${esc(T(lang, 'qrChip'))}</span>
@@ -1510,7 +1570,7 @@ function qrHTML(ctx) {
 }
 function qrSheet(room, lang) {
   const ko = lang === 'ko', iss = issueDef(QS.issue);
-  const stallBlock = iss.stall ? `<div class="fld"><span class="lab">${esc(T(lang, 'qrStall'))}${ko ? pen('field.qr.stall') : ''}</span><div class="qa-stalls">${stallOpts(room).map(s => `<button type="button" class="chipbtn" data-qstall="${s}" aria-pressed="${String(QS.stall) === String(s)}">${esc(s === '?' ? T(lang, 'unknown') : stallName(s, lang))}</button>`).join('')}</div></div>` : '';
+  const stallBlock = iss.stall && stallOpts(room, QS.issue).length > 2 ? `<div class="fld"><span class="lab">${esc(T(lang, 'qrStall'))}${ko ? pen('field.qr.stall') : ''}</span><div class="qa-stalls">${stallOpts(room, QS.issue).map(s => `<button type="button" class="chipbtn" data-qstall="${s}" aria-pressed="${String(QS.stall) === String(s)}">${esc(s === '?' ? T(lang, 'unknown') : stallName(s, lang))}</button>`).join('')}</div></div>` : '';
   const photo = QS.purl
     ? `<div class="qa-photo" data-sp-zoom><img src="${QS.purl}" alt="첨부한 사진"><button type="button" class="b" data-act="rmphoto">${esc(T(lang, 'photoRm'))}</button></div>`
     : `<div class="qa-photo"><label class="b">${svg('camera')}<span>${esc(T(lang, 'photoCam'))}</span><input type="file" accept="image/*" capture="environment" data-in="qphoto" hidden></label><label class="b"><span>${esc(T(lang, 'photoPick'))}</span><input type="file" accept="image/*" data-in="qphoto" hidden></label></div>`;
@@ -1532,7 +1592,7 @@ async function triggerSos(ctx) {
 async function qrClick(e, ctx) {
   const b = e.target.closest('button'); if (!b || b.classList.contains('pen')) return;
   if (b.dataset.issue) { QS.issue = b.dataset.issue; QS.stall = null; QS.msg = ''; QS.step = 'detail'; QS.draw(); return; }
-  if (b.dataset.qstall) { QS.stall = b.dataset.qstall === '?' ? null : (b.dataset.qstall === 'U' ? 'U' : +b.dataset.qstall); $$('[data-qstall]', QS.el).forEach(x => x.setAttribute('aria-pressed', String(x === b))); return; }
+  if (b.dataset.qstall) { QS.stall = b.dataset.qstall === '?' ? null : (/^U/.test(b.dataset.qstall) ? b.dataset.qstall : +b.dataset.qstall); $$('[data-qstall]', QS.el).forEach(x => x.setAttribute('aria-pressed', String(x === b))); return; }
   const act = b.dataset.act;
   if (act === 'home') { if (QS.purl) URL.revokeObjectURL(QS.purl); QS.purl = null; QS.pblob = null; QS.step = 'home'; QS.res = null; QS.msg = ''; QS.note = ''; QS.draw(); }
   else if (act === 'rmphoto') { if (QS.purl) URL.revokeObjectURL(QS.purl); QS.purl = null; QS.pblob = null; QS.draw(); }
@@ -1582,11 +1642,15 @@ function beep(sos) {
   try { if (navigator.vibrate) navigator.vibrate(sos ? [220, 90, 220, 90, 220] : [160, 80, 160]); } catch (e) { /* 무시 */ }
 }
 function inScope(t, me) {
-  if (SS.scope === 'all') return true;
+  if (SS.scope === 'all' || !me.id) return true;
   if (t.staffId === me.id) return true;
-  const room = rById(t.roomId), cat = issueDef(t.issue).cat;
-  if (!room || !me.zone.includes(room.floor)) return false;
-  return me.role === '시설' ? cat === 'fac' : cat !== 'fac';
+  const room = rById(t.roomId);
+  if (!room || !covers(me, room)) return false;
+  const fac = catOf(t) === 'fac';
+  const other = fac ? '시설' : '청소';
+  if ((me.role === '시설') === fac) return true;
+  // 맡을 사람이 따로 없으면 내 구역 안의 건은 나에게도 보인다
+  return !STAFF.some(m => m.role === other && covers(m, room));
 }
 function staffLists() {
   const me = sById(SS.staffId), now = Date.now();
@@ -1603,7 +1667,7 @@ function mountStaff(el, ctx) {
     if (SS.el !== el) return;
     const { me, wait, mine, done } = staffLists();
     el.querySelector('.st-head').innerHTML = `${ctx.full ? '' : `<div class="sbar" style="padding-inline:12px"><span>${hm(Date.now())}</span><span>5G</span></div>`}
-      <div class="st-who"><div class="st-avatar">${esc(me.name[0])}</div><div><select data-in="staff" aria-label="담당자 고르기">${STAFF.map(s => `<option value="${s.id}" ${s.id === me.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select><div class="st-zone">${esc(me.role)} · ${esc(me.zoneLabel)}</div></div><span class="duty">근무 중</span></div>
+      <div class="st-who"><div class="st-avatar">${esc((me.name || '?')[0])}</div><div>${AUTH.role === 'admin' ? `<select data-in="staff" aria-label="누구로 볼지 고르기"><option value="" ${me.id ? '' : 'selected'}>관리자 (전체 보기)</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === me.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : `<b class="st-name">${esc(me.id ? me.name : (AUTH.email || '담당자'))}</b>`}<div class="st-zone">${me.id ? esc(me.role) + ' · ' + esc(me.zoneLabel) : '모든 현장 · 전 층'}</div></div><span class="duty">근무 중</span></div>
       <div class="st-tools"><button type="button" class="chipbtn" data-scope="zone" aria-pressed="${SS.scope === 'zone'}">내 구역</button><button type="button" class="chipbtn" data-scope="all" aria-pressed="${SS.scope === 'all'}">전체</button><button type="button" class="chipbtn${SS.sound ? ' on' : ''}" data-act="sound">${svg('bell')}${SS.sound ? '알림음 켜짐' : '알림음 켜기'}</button></div>`;
     GROUPS.sttabs = ST_KEYS;
     const n = { wait: wait.length, mine: mine.length, done: done.length };
@@ -1659,7 +1723,7 @@ function staffBanner(ev) {
 function actionsFor(t) {
   const me = sById(SS.staffId);
   const a = [ACTION_PRIMARY[t.issue] || '조치 완료', '이상 없음'];
-  if (me.role !== '시설' && !t.emergency) a.push('시설팀으로 넘김');
+  if (me.role !== '시설' && !t.emergency && STAFF.some(m => m.role === '시설' && covers(m, rById(t.roomId)))) a.push('시설팀으로 넘김');
   return a;
 }
 function drawSheet() {
@@ -1711,13 +1775,13 @@ async function staffClick(e) {
 }
 function staffChange(e) {
   const i = e.target.dataset.in;
-  if (i === 'staff') { SS.staffId = e.target.value; LS.set('rc-staff', SS.staffId); SS.sheet = null; drawSheet(); SS.draw(); }
+  if (i === 'staff') { if (AUTH.role !== 'admin') return; SS.staffId = e.target.value; LS.set('rc-staff', SS.staffId); SS.sheet = null; drawSheet(); SS.draw(); }
   else if (i === 'sheetPhoto') { const f = e.target.files && e.target.files[0]; if (!f) return; if (SS.purl) URL.revokeObjectURL(SS.purl); SS.pblob = f; SS.purl = URL.createObjectURL(f); drawSheet(); }
 }
 
 /* ================= 관리자 ================= */
 function stats() {
-  const now = Date.now(), ts = todays();
+  const now = Date.now(), ts = todaysA();
   const done = ts.filter(t => t.status === 'done'), open = ts.filter(isOpen), over = ts.filter(isOver);
   return {
     total: ts.length, sos: ts.filter(t => t.emergency).length, merged: ts.reduce((a, t) => a + ((t.reports || 1) - 1), 0),
@@ -1725,7 +1789,7 @@ function stats() {
     oldest: open.length ? mins(now - Math.min(...open.map(t => t.createdAt))) : 0,
     avg: done.length ? Math.round(done.reduce((a, t) => a + (t.doneAt - t.createdAt), 0) / done.length / M) : 0,
     over: over.length, overOpen: over.filter(isOpen).length,
-    clean: Object.values(FEEDBACK).reduce((a, b) => a + b, 0)
+    clean: siteRooms().reduce((a, r) => a + (FEEDBACK[r.id] || 0), 0)
   };
 }
 function kpisHTML(s, mini) {
@@ -1739,7 +1803,7 @@ function kpisHTML(s, mini) {
   return `<div class="kpis">${(mini ? k.slice(0, 4) : k).join('')}</div>`;
 }
 function feedHTML(n) {
-  const list = todays().sort((a, b) => b.createdAt - a.createdAt).slice(0, n);
+  const list = todaysA().sort((a, b) => b.createdAt - a.createdAt).slice(0, n);
   if (!list.length) return `<p class="hint" style="margin:0">${DATA_READY ? '오늘 접수가 아직 없습니다.' : '불러오는 중…'}</p>`;
   return `<ul class="feed">${list.map(t => `<li><button type="button" data-tid="${esc(t.id)}" class="${Date.now() - t.createdAt < 15000 ? 'fresh' : ''}"><span class="mono">${hm(t.createdAt)}</span><span class="fd-loc">${esc(locShort(t))}</span><span class="fd-iss">${svg(issueDef(t.issue).icon)}${esc(issueLabel(t.issue))}</span>${statusChip(t)}</button></li>`).join('')}</ul>`;
 }
@@ -1754,14 +1818,23 @@ function mountAdmin(el) {
   el.innerHTML = '<div class="adm"><nav class="adm-nav" aria-label="관리자 메뉴"></nav><section class="adm-main"></section></div>';
   drawAdmNav(); drawAdmMain();
   el.onclick = admClick; el.onchange = admChange; el.oninput = admInput;
-  el.onsubmit = e => { e.preventDefault(); if (e.target.id === 'addIssue') addIssue(); else if (e.target.id === 'aclAdd') aclAdd(); };
-  MOUNTS.push({ refresh: () => { if (AS.el !== el) return; drawAdmNav(); if (AS.sub === 'dash' || AS.sub === 'staff') drawAdmMain(); else if (AS.sub === 'list') drawListTable(); } });
+  el.onsubmit = e => { e.preventDefault(); if (e.target.id === 'addIssue') addIssue(); else if (e.target.id === 'memAdd') addMemberForm(); };
+  MOUNTS.push({ refresh: () => { if (AS.el !== el) return; drawAdmNav(); if (AS.sub === 'dash') drawAdmMain(); else if (AS.sub === 'list') drawListTable(); } });
 }
-const openCount = () => TICKETS.filter(isOpen).length;
+const inSite = t => !AS.site || ((rById(t.roomId) || {}).site || t.siteId) === AS.site;
+const todaysA = () => todays().filter(inSite);
+const siteRooms = () => ROOMS.filter(r => !AS.site || r.site === AS.site);
+function siteDesc() {
+  const rs = siteRooms(), st = AS.site ? siteById(AS.site) : (SITES.length === 1 ? SITES[0] : null);
+  if (!SITES.length) return '등록된 현장 없음';
+  return `${st ? esc(st.name) : '모든 현장 ' + SITES.length + '곳'} · ${siteFloors(AS.site).length}개 층 · 화장실 ${rs.length}곳`;
+}
+const openCount = () => TICKETS.filter(t => isOpen(t) && inSite(t)).length;
 function drawAdmNav() {
   GROUPS.admmenu = ADM_KEYS;
   const nav = AS.el.querySelector('.adm-nav');
-  nav.innerHTML = `<div class="adm-site"><span class="hint">현장</span><select aria-label="현장 고르기"><option>${SITE} (예시)</option><option disabled>＋ 현장 추가 (다음 단계)</option></select></div>` +
+  if (AS.site && !siteById(AS.site)) AS.site = '';
+  nav.innerHTML = `<div class="adm-site"><span class="hint">현장</span><select id="admSite" aria-label="현장 고르기">${SITES.length > 1 ? `<option value="" ${AS.site ? '' : 'selected'}>모든 현장 (${SITES.length}곳)</option>` : ''}${SITES.map(st => `<option value="${esc(st.id)}" ${AS.site === st.id || (SITES.length === 1) ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}<option value="__add">＋ 현장 추가</option></select></div>` +
     ordered(ADM_KEYS).map(k => { const sub = k.slice(9); return `<div class="nav-item${hidCls(k)}"><button type="button" data-sub="${sub}" aria-current="${AS.sub === sub}">${esc(L(k))}${sub === 'list' && openCount() ? `<span class="nav-n mono">${openCount()}</span>` : ''}</button>${pen(k, 'admmenu')}</div>`; }).join('');
 }
 function drawAdmMain() {
@@ -1788,31 +1861,40 @@ function drawDash(main) {
     }
     return '';
   };
-  main.innerHTML = `<div class="adm-head"><div><h1>오늘 현황</h1><p class="hint">${SITE} (예시) · 5개 층 · 화장실 20곳 · ${esc(dayLabel())} · <span class="live">실시간</span></p></div><div class="adm-head-actions"><button type="button" class="b" data-sub="list">접수 목록 보기</button></div></div>
+  main.innerHTML = `<div class="adm-head"><div><h1>오늘 현황</h1><p class="hint">${siteDesc()} · ${esc(dayLabel())} · <span class="live">실시간</span></p></div><div class="adm-head-actions"><button type="button" class="b" data-sub="list">접수 목록 보기</button></div></div>
     <div class="dash">${ordered(DASH_KEYS).map(card).join('')}</div>`;
 }
 function bldHTML() {
-  const cols = [['W', 1], ['W', 2], ['M', 1], ['M', 2]];
-  let h = `<div class="bsec"><span></span>${cols.map(([tp, n]) => `<span class="hd">${TYPE_SHORT[tp]}<small>${n === 1 ? '동측' : '서측'}</small></span>`).join('')}`;
-  FLOORS.forEach(f => {
-    h += `<span class="fl">${f}</span>`;
-    cols.forEach(([tp, n]) => {
-      const r = rById(f + '-' + tp + n);
-      const ts = todays().filter(t => t.roomId === r.id), open = ts.filter(isOpen);
-      let cls = 'clear', tag = '';
-      if (open.some(isOver)) { cls = 'over'; tag = '기준 초과'; }
-      else if (open.some(t => t.status === 'new')) { cls = 'new'; tag = '대기 ' + open.filter(t => t.status === 'new').length; }
-      else if (open.length) { cls = 'going'; tag = '처리 중'; }
-      h += `<button type="button" class="cell s-${cls}" data-room="${r.id}" title="${esc(roomLabel(r.id))} · 오늘 ${ts.length}건 · 눌러서 목록 보기"><b>${ts.length}</b><i>${tag}</i></button>`;
+  const sites = AS.site ? SITES.filter(x => x.id === AS.site) : SITES;
+  if (!sites.length) return '<p class="hint" style="margin:0">현장을 먼저 등록하세요.</p>';
+  const cellOf = r => {
+    const ts = todays().filter(t => t.roomId === r.id), open = ts.filter(isOpen);
+    let cls = 'clear', tag = '';
+    if (open.some(isOver)) { cls = 'over'; tag = '기준 초과'; }
+    else if (open.some(t => t.status === 'new')) { cls = 'new'; tag = '대기 ' + open.filter(t => t.status === 'new').length; }
+    else if (open.length) { cls = 'going'; tag = '처리 중'; }
+    return `<button type="button" class="cell s-${cls}" data-room="${r.id}" title="${esc(roomLabel(r.id))} · 오늘 ${ts.length}건 · 눌러서 목록 보기"><b>${ts.length}</b><i>${tag}</i></button>`;
+  };
+  let h = '';
+  sites.forEach(st => {
+    const rs = ROOMS.filter(r => r.site === st.id);
+    const cols = []; rs.forEach(r => { const k = r.type + r.n; if (!cols.some(c => c.k === k)) cols.push({ k, type: r.type, n: r.n, dup: r.dup }); });
+    cols.sort((x, y) => (x.type === y.type ? x.n - y.n : (x.type === 'M' ? -1 : 1)));
+    if (sites.length > 1) h += `<p class="bsec-site"><b>${esc(st.name)}</b></p>`;
+    h += `<div class="bsec" style="grid-template-columns:40px repeat(${Math.max(1, cols.length)},minmax(0,1fr))"><span></span>${cols.map(c => `<span class="hd">${TYPE_SHORT[c.type]}${cols.filter(x => x.type === c.type).length > 1 ? `<small>${c.n}</small>` : ''}</span>`).join('')}`;
+    siteFloors(st.id).forEach(f => {
+      h += `<span class="fl">${f}</span>`;
+      cols.forEach(c => { const r = rs.find(x => x.floor === f && x.type === c.type && x.n === c.n); h += r ? cellOf(r) : '<span class="cell s-none"></span>'; });
     });
+    h += '</div>';
   });
-  return h + '</div><div class="legend"><span><i class="lg s-new"></i>대기</span><span><i class="lg s-going"></i>처리 중</span><span><i class="lg s-over"></i>기준 초과</span><span>숫자 = 오늘 접수 · 칸을 누르면 목록</span></div>';
+  return h + '<div class="legend"><span><i class="lg s-new"></i>대기</span><span><i class="lg s-going"></i>처리 중</span><span><i class="lg s-over"></i>기준 초과</span><span>숫자 = 오늘 접수 · 칸을 누르면 목록</span></div>';
 }
 function hourSVG() {
   const now = Date.now(), H0 = kstHour(now);
   const hours = []; for (let i = 9; i >= 0; i--) hours.push((H0 - i + 24) % 24);
   const cnt = hours.map(() => 0);
-  TICKETS.forEach(t => { if (t.status === 'cancel' || now - t.createdAt > 10 * 3600e3) return; const idx = hours.indexOf(kstHour(t.createdAt)); if (idx >= 0) cnt[idx]++; });
+  TICKETS.forEach(t => { if (t.status === 'cancel' || now - t.createdAt > 10 * 3600e3 || !inSite(t)) return; const idx = hours.indexOf(kstHour(t.createdAt)); if (idx >= 0) cnt[idx]++; });
   const W = 560, H = 200, pl = 8, pr = 8, pt = 24, pb = 26, bw = (W - pl - pr) / 10;
   const max = Math.max(1, ...cnt), peak = cnt.indexOf(Math.max(...cnt));
   let g = `<svg class="hchart" viewBox="0 0 ${W} ${H}" role="img" aria-label="시간대별 접수: ${hours.map((h, i) => h + '시 ' + cnt[i] + '건').join(', ')}">`;
@@ -1827,14 +1909,14 @@ function hourSVG() {
 }
 function typeHTML() {
   const m = {};
-  todays().forEach(t => { m[t.issue] = (m[t.issue] || 0) + 1; });
+  todaysA().forEach(t => { m[t.issue] = (m[t.issue] || 0) + 1; });
   const arr = Object.entries(m).sort((a, b) => b[1] - a[1]);
   if (!arr.length) return '<p class="hint" style="margin:0">오늘 접수가 아직 없습니다.</p>';
   const max = Math.max(1, ...arr.map(a => a[1]));
   return `<div class="tbars">${arr.map(([c, n]) => `<div class="tb-row">${svg(issueDef(c).icon)}<span class="tb-lab">${esc(issueLabel(c))}</span><span class="tb-bar"><i style="width:${(n / max * 100).toFixed(1)}%"></i></span><b class="mono">${n}</b></div>`).join('')}</div>`;
 }
 function insights() {
-  const out = [], ts = todays().filter(t => !t.emergency);
+  const out = [], ts = todaysA().filter(t => !t.emergency);
   const grp = {};
   ts.forEach(t => { const k = t.roomId + '|' + t.issue; (grp[k] || (grp[k] = [])).push(t); });
   let best = null;
@@ -1846,11 +1928,11 @@ function insights() {
     out.push({ tag: '순회 조정', text: `${roomLabel(rid)} ‘${issueLabel(code)}’ 접수가 오늘 ${arr.length}건이고, 그중 ${bc}건이 ${bh}–${(bh + 2) % 24}시에 몰렸습니다. ${pad2((bh + 23) % 24)}:30 순회 때 미리 채워 두면 줄일 수 있습니다.`, basis: `같은 화장실·같은 유형 ${arr.length}건의 접수 시각` });
   }
   let wz = null, wn = 0;
-  STAFF.filter(s => s.role === '청소').forEach(s => { const n = ts.filter(t => t.staffId === s.id && isOver(t)).length; if (n > wn) { wn = n; wz = s; } });
-  if (wz && wn >= 2) out.push({ tag: '인력', text: `${wz.zoneLabel} 구역에서 기준 시간을 넘긴 건이 ${wn}건입니다. 담당 한 명이 ${wz.zone.length}개 층을 맡고 있어, 붐비는 시간대에 다른 구역 담당이 돕도록 묶어 보세요.`, basis: '구역별 기준 시간 초과 건수' });
+  STAFF.forEach(s => { const n = ts.filter(t => t.staffId === s.id && isOver(t)).length; if (n > wn) { wn = n; wz = s; } });
+  if (wz && wn >= 2) out.push({ tag: '인력', text: `${wz.name}(${wz.zoneLabel}) 담당 건 중 기준 시간을 넘긴 건이 ${wn}건입니다. 붐비는 시간대에 다른 담당이 돕도록 구역을 나눠 보세요.`, basis: '담당자별 기준 시간 초과 건수' });
   const reo = ts.filter(t => t.reopened > 0);
   if (reo.length) out.push({ tag: '조치 품질', text: `조치 완료 뒤 고객이 「아직 그대로예요」를 누른 건이 ${reo.length}건입니다(${reo.slice(0, 3).map(t => locShort(t) + ' ' + issueLabel(t.issue)).join(', ')}). 완료 사진을 필수로 할지 검토해 보세요.`, basis: '고객 재접수 기록' });
-  const praise = ROOMS.filter(r => (FEEDBACK[r.id] || 0) >= 5 && !ts.some(t => t.roomId === r.id)).sort((x, y) => FEEDBACK[y.id] - FEEDBACK[x.id])[0];
+  const praise = siteRooms().filter(r => (FEEDBACK[r.id] || 0) >= 5 && !ts.some(t => t.roomId === r.id)).sort((x, y) => FEEDBACK[y.id] - FEEDBACK[x.id])[0];
   if (praise) out.push({ tag: '유지', text: `${roomLabel(praise.id)}은 오늘 불편 접수 0건, ‘깨끗해요’ ${FEEDBACK[praise.id]}회입니다. 지금 청소 주기를 그대로 두어도 됩니다.`, basis: '접수 건수와 ‘깨끗해요’ 횟수' });
   return out;
 }
@@ -1863,17 +1945,17 @@ const COLS = [
   { key: 'field.tickets.issue', cell: t => `<span class="td-iss">${svg(issueDef(t.issue).icon)}${esc(issueLabel(t.issue))}</span>` },
   { key: 'field.tickets.reports', cell: t => (t.reports || 1) > 1 ? `<span class="chip rep">${t.reports}회</span>` : '<span class="hint">1회</span>' },
   { key: 'field.tickets.status', cell: t => statusChip(t) + (t.reopened ? ' <span class="chip new">재접수</span>' : '') },
-  { key: 'field.tickets.staff', cell: t => esc(sById(t.staffId).name) },
+  { key: 'field.tickets.staff', cell: t => esc(assigneeName(t)) },
   { key: 'field.tickets.dur', cell: t => elapsedSpan(t) }
 ];
 const STATUS_F = [['all', '전체'], ['new', '대기'], ['going', '처리 중'], ['done', '완료'], ['sos', '긴급'], ['over', '기준 초과']];
 function matchStatus(t, s) { if (t.status === 'cancel') return s === 'all'; if (s === 'all') return true; if (s === 'sos') return t.emergency; if (s === 'over') return isOver(t); return t.status === s; }
 function drawList(main) {
-  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_list'))}</h1><p class="hint">${SITE} (예시) · 줄을 누르면 상세가 열립니다</p></div><div class="adm-head-actions"><button type="button" class="b" data-act="csv">CSV 내보내기</button></div></div>
+  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_list'))}</h1><p class="hint">${siteDesc()} · 줄을 누르면 상세가 열립니다</p></div><div class="adm-head-actions"><button type="button" class="b" data-act="csv">CSV 내보내기</button></div></div>
     <div class="filters">
       <div class="seg" role="group" aria-label="상태">${STATUS_F.map(([v, l]) => `<button type="button" class="chipbtn" data-fs="${v}" aria-pressed="${AS.f.status === v}">${l}<span class="n"></span></button>`).join('')}</div>
       <select id="fPeriod" aria-label="기간"><option value="today" ${AS.f.period === 'today' ? 'selected' : ''}>오늘</option><option value="7d" ${AS.f.period === '7d' ? 'selected' : ''}>최근 7일</option><option value="all" ${AS.f.period === 'all' ? 'selected' : ''}>전체</option></select>
-      <select id="fFloor" aria-label="층"><option value="">모든 층</option>${FLOORS.map(f => `<option ${AS.f.floor === f ? 'selected' : ''}>${f}</option>`).join('')}</select>
+      <select id="fFloor" aria-label="층"><option value="">모든 층</option>${siteFloors(AS.site).map(f => `<option ${AS.f.floor === f ? 'selected' : ''}>${f}</option>`).join('')}</select>
       <select id="fIssue" aria-label="불편 사항"><option value="">모든 불편</option>${OPS.issues.map(i => `<option value="${i.code}" ${AS.f.issue === i.code ? 'selected' : ''}>${esc(issueLabel(i.code))}</option>`).join('')}<option value="sos" ${AS.f.issue === 'sos' ? 'selected' : ''}>긴급 도움</option></select>
       <input type="search" id="fQ" placeholder="번호·위치·설명 검색" value="${esc(AS.f.q)}" aria-label="검색">
       ${AS.f.room ? `<button type="button" class="chipbtn" data-act="clearRoom" aria-pressed="true">${esc(roomLabel(AS.f.room))} ✕</button>` : ''}
@@ -1887,6 +1969,7 @@ function filteredTickets() {
     if (AS.f.period === 'today' && !isToday(t)) return false;
     if (AS.f.period === '7d' && now - t.createdAt > 7 * 86400000) return false;
     if (AS.f.room && t.roomId !== AS.f.room) return false;
+    if (!inSite(t)) return false;
     const r = rById(t.roomId);
     if (AS.f.floor && (!r || r.floor !== AS.f.floor)) return false;
     if (AS.f.issue && t.issue !== AS.f.issue) return false;
@@ -1906,62 +1989,171 @@ function drawListTable() {
     <p class="tbl-sum">${rows.length}건 · 걸린 시간은 접수부터 완료까지, 진행 중이면 지금까지입니다</p>`;
 }
 function stickerHTML(room) {
-  return `<div class="sticker"><div class="sk-top"><span class="sk-floor">${room.floor}</span><span class="sk-pict">${pictSvg(room.type)}</span><b>${TYPE_KO[room.type]} · ${sideName(room)}</b></div><div class="sk-qr" id="skQR"></div><p class="sk-say">불편한 점이 있으면<br>휴대폰 카메라로 찍어 주세요</p><small class="sk-small">앱 설치 없이 바로 접수 · 이름·전화번호는 받지 않습니다</small><small class="sk-url mono">${esc(BASE_URL.replace(/^https:\/\//, '').replace(/\/$/, ''))}</small></div>`;
+  return `<div class="sticker"><div class="sk-top"><span class="sk-floor">${room.floor}</span><span class="sk-pict">${pictSvg(room.type)}</span><b>${TYPE_KO[room.type]}${roomNo(room)}</b></div><div class="sk-qr" id="skQR"></div><p class="sk-say">불편한 점이 있으면<br>휴대폰 카메라로 찍어 주세요</p><small class="sk-small">${esc(room.siteName)} · 앱 설치 없이 바로 접수</small><small class="sk-url mono">${esc(room.id)}</small></div>`;
+}
+
+/* ---------- 현장·QR ---------- */
+function nextSiteId() { let n = 0; SITES.forEach(st => { const m = /^S(\d+)$/.exec(st.id || ''); if (m) n = Math.max(n, +m[1]); }); return 'S' + pad2(n + 1); }
+function siteEditorHTML(e) {
+  return `<section class="card site-edit"><h3>${e.id ? '현장 고치기 · <span class="mono">' + esc(e.id) + '</span>' : '새 현장'}</h3>
+    <div class="se-grid"><label class="se-f"><span class="lab">현장 이름</span><input type="text" data-ed="name" maxlength="40" value="${esc(e.name)}" placeholder="예: (주)스페이스 학운공장"></label><label class="se-f"><span class="lab">주소</span><input type="text" data-ed="address" maxlength="120" value="${esc(e.address)}" placeholder="도로명 주소"></label></div>
+    <div class="tbl-wrap"><table class="tbl se-rooms"><thead><tr><th>층</th><th>남/여</th><th>칸 수</th><th>소변기 수</th><th>QR 번호</th><th></th></tr></thead><tbody>
+      ${e.rows.map((r, i) => `<tr><td><input type="text" class="num" data-row="${i}" data-rf="floor" value="${esc(r.floor)}" ${r.id ? 'disabled' : ''} placeholder="1F" aria-label="층"></td><td><select data-row="${i}" data-rf="type" ${r.id ? 'disabled' : ''} aria-label="남/여"><option value="M" ${r.type === 'M' ? 'selected' : ''}>남자</option><option value="W" ${r.type === 'W' ? 'selected' : ''}>여자</option></select></td><td><input type="number" class="num" min="0" max="30" data-row="${i}" data-rf="stalls" value="${esc(r.stalls)}" aria-label="칸 수"></td><td><input type="number" class="num" min="0" max="30" data-row="${i}" data-rf="urinals" value="${r.type === 'W' ? 0 : esc(r.urinals)}" ${r.type === 'W' ? 'disabled' : ''} aria-label="소변기 수"></td><td class="mono hint">${esc(r.id || '저장하면 생김')}</td><td><button type="button" class="b danger" data-act="rowDel" data-row="${i}">빼기</button></td></tr>`).join('') || '<tr><td colspan="6" class="hint" style="padding:12px">「＋ 화장실 추가」를 누르세요.</td></tr>'}
+    </tbody></table></div>
+    <div class="se-foot"><button type="button" class="b" data-act="rowAdd">＋ 화장실 추가</button><span class="grow"></span>${e.id ? '<button type="button" class="b danger" data-act="siteDel">현장 지우기</button>' : ''}<button type="button" class="b" data-act="siteCancel">취소</button><button type="button" class="b primary" data-act="siteSave">저장</button></div>
+    <p class="hint" style="margin:0">층은 1F·2F·B1F처럼 적습니다(「1」「지하1」도 됩니다). 저장한 화장실의 층·남녀는 바꿀 수 없습니다 — 인쇄한 QR이 그대로 쓰이도록. 바꾸려면 빼고 새로 추가하세요.</p>
+  </section>`;
 }
 function drawRooms(main) {
-  const room = rById(AS.selRoom) || ROOMS[0];
-  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_rooms'))}</h1><p class="hint">화장실마다 QR 주소가 다릅니다. 스티커를 A4로 저장해 인쇄하세요.</p></div><div class="adm-head-actions"><button type="button" class="b accent" data-act="sheet">스티커 20장 A4 한 장으로 저장</button></div></div>
-    <div class="rooms-grid">
+  const e = AS.edit;
+  const sites = SITES.slice().sort((a, b) => (a.order || 0) - (b.order || 0) || String(a.id).localeCompare(String(b.id)));
+  const cur = (AS.site && siteById(AS.site)) || sites[0] || null;
+  const rs = cur ? ROOMS.filter(r => r.site === cur.id) : [];
+  const sel = rById(AS.selRoom);
+  const room = sel && cur && sel.site === cur.id ? sel : rs[0];
+  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_rooms'))}</h1><p class="hint">현장을 등록하면 화장실마다 QR이 생깁니다. 한 번 인쇄한 QR 주소는 바뀌지 않습니다.</p></div><div class="adm-head-actions">${cur && rs.length ? `<button type="button" class="b accent" data-act="printSite" data-site="${esc(cur.id)}">이 현장 QR 인쇄</button><button type="button" class="b" data-act="sheet" data-site="${esc(cur.id)}">A4 그림으로 저장</button>` : ''}<button type="button" class="b primary" data-act="siteNew">＋ 현장 추가</button></div></div>
+    ${e ? siteEditorHTML(e) : ''}
+    <div class="site-list">${sites.map(st => { const n = ROOMS.filter(r => r.site === st.id).length; return `<article class="card site-card${cur && cur.id === st.id ? ' sel' : ''}"><div><b>${esc(st.name)}</b><div class="hint">${esc(st.address || '주소 없음')}</div><div class="hint">화장실 ${n}곳 · ${siteFloors(st.id).join('·') || '—'} · <span class="mono">${esc(st.id)}</span></div></div><div class="sc-acts"><button type="button" class="b" data-act="siteSel" data-site="${esc(st.id)}">보기</button><button type="button" class="b" data-act="siteEdit" data-site="${esc(st.id)}">고치기</button></div></article>`; }).join('') || (e ? '' : '<p class="hint">아직 등록된 현장이 없습니다. 「＋ 현장 추가」를 누르세요.</p>')}</div>
+    ${cur && rs.length && room ? `<div class="rooms-grid">
       <div class="tbl-wrap"><table class="tbl"><thead><tr><th>층</th><th>화장실</th><th>칸</th><th>오늘 접수</th><th>지금</th><th>깨끗해요</th></tr></thead><tbody>
-        ${ROOMS.map(r => { const ts = todays().filter(t => t.roomId === r.id), open = ts.filter(isOpen).length; return `<tr class="click${r.id === room.id ? ' sel' : ''}" data-selroom="${r.id}"><td class="mono">${r.floor}</td><td>${esc(sideName(r))} ${TYPE_KO[r.type]}</td><td class="mono">${r.stalls}${r.urinal ? ' + 소변기' : ''}</td><td class="mono">${ts.length}</td><td>${open ? `<span class="chip new">${open}건</span>` : '<span class="hint">—</span>'}</td><td class="mono">${FEEDBACK[r.id] || 0}</td></tr>`; }).join('')}
+        ${rs.map(r => { const ts = todays().filter(t => t.roomId === r.id), open = ts.filter(isOpen).length; return `<tr class="click${r.id === room.id ? ' sel' : ''}" data-selroom="${r.id}"><td class="mono">${r.floor}</td><td>${TYPE_KO[r.type]}${roomNo(r)}</td><td class="mono">${r.stalls}칸${r.urinals ? ' + 소변기 ' + r.urinals : ''}</td><td class="mono">${ts.length}</td><td>${open ? `<span class="chip new">${open}건</span>` : '<span class="hint">—</span>'}</td><td class="mono">${FEEDBACK[r.id] || 0}</td></tr>`; }).join('')}
       </tbody></table></div>
       <aside class="card sticker-card"><h3>${esc(roomLabel(room.id))}</h3>${stickerHTML(room)}
         <div class="sticker-row"><button type="button" class="b primary" data-act="qrsave">이 스티커 저장</button><button type="button" class="b" data-act="openCustomer">고객 화면으로 보기</button></div>
         <p class="hint" style="margin:0">누구 휴대폰이든 카메라로 찍으면 바로 열립니다. 화면의 QR을 찍어 확인해 보세요.</p></aside>
-    </div>`;
-  renderQRCode($('#skQR', main), qrURL(room.id));
+    </div>` : ''}`;
+  if (room) { AS.selRoom = room.id; renderQRCode($('#skQR', main), qrURL(room.id)); }
 }
+function editSite(id) {
+  const st = id && siteById(id);
+  AS.edit = st
+    ? { id: st.id, name: st.name || '', address: st.address || '', rows: ROOMS.filter(r => r.site === st.id).map(r => ({ id: r.id, floor: r.floor, type: r.type, stalls: r.stalls, urinals: r.urinals })) }
+    : { id: '', name: '', address: '', rows: [{ floor: '1F', type: 'M', stalls: 1, urinals: 1 }, { floor: '1F', type: 'W', stalls: 1, urinals: 0 }] };
+  AS.sub = 'rooms'; drawAdmNav(); drawAdmMain();
+  const f = AS.el && AS.el.querySelector('[data-ed="name"]'); if (f) f.focus();
+}
+async function saveSite() {
+  const e = AS.edit; if (!e || AS.savingSite) return;
+  const name = (e.name || '').trim().slice(0, 40), address = (e.address || '').trim().slice(0, 120);
+  if (!name) { toast('현장 이름을 넣어 주세요'); return; }
+  if (!e.rows.length) { toast('화장실을 한 곳 이상 넣어 주세요'); return; }
+  const id = e.id || nextSiteId();
+  const old = e.id ? ((siteById(e.id) || {}).rooms || []) : [];
+  const used = {};
+  old.forEach(o => { const k = o.floor + o.type; used[k] = Math.max(used[k] || 0, o.n || 1); });
+  const rooms = [];
+  for (const r of e.rows) {
+    const stalls = Math.min(30, Math.max(0, Math.round(+r.stalls || 0)));
+    if (r.id) { const o = old.find(x => x.id === r.id); if (!o) continue; rooms.push({ id: o.id, floor: o.floor, type: o.type, n: o.n || 1, stalls, urinals: o.type === 'M' ? Math.min(30, Math.max(0, Math.round(+r.urinals || 0))) : 0 }); continue; }
+    const floor = normFloor(r.floor);
+    if (!floor) { toast('층을 확인해 주세요: ' + (r.floor || '(빈칸)')); return; }
+    const type = r.type === 'W' ? 'W' : 'M', k = floor + type, n = (used[k] || 0) + 1; used[k] = n;
+    if (n > 99) { toast('같은 층에 화장실이 너무 많습니다'); return; }
+    rooms.push({ id: `${id}-${floor}-${type}${n}`, floor, type, n, stalls, urinals: type === 'M' ? Math.min(30, Math.max(0, Math.round(+r.urinals || 0))) : 0 });
+  }
+  if (!rooms.length) { toast('화장실을 한 곳 이상 넣어 주세요'); return; }
+  const removed = old.filter(o => !rooms.some(r => r.id === o.id));
+  if (removed.length && !await askConfirm(`화장실 ${removed.length}곳을 뺍니다(${removed.map(o => o.floor + ' ' + TYPE_SHORT[o.type]).join(', ')}). 이미 붙인 그 QR은 더 이상 열리지 않습니다. 저장할까요?`, '저장')) return;
+  AS.savingSite = true;
+  try {
+    const prev = siteById(id);
+    await DB.doc('sites/' + id).set({ id, name, address, rooms, roomIds: rooms.map(r => r.id), order: prev ? (prev.order || 0) : SITES.length, at: Date.now(), by: AUTH.email });
+    AS.edit = null; AS.site = id; LS.set('rc-site', id); AS.selRoom = '';
+    toast(`‘${name}’ 현장을 저장했습니다 · 화장실 ${rooms.length}곳 QR 준비됨`);
+  } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
+  AS.savingSite = false;
+  drawAdmNav(); drawAdmMain();
+}
+async function deleteSite() {
+  const e = AS.edit; if (!e || !e.id) return;
+  const n = TICKETS.filter(t => ((rById(t.roomId) || {}).site || t.siteId) === e.id).length;
+  if (!await askConfirm(`‘${e.name}’ 현장을 지울까요? 이 현장의 QR이 모두 열리지 않게 됩니다.${n ? ' 접수 기록 ' + n + '건은 남습니다.' : ''}`, '현장 지우기')) return;
+  try { await DB.doc('sites/' + e.id).delete(); AS.edit = null; AS.site = ''; LS.del('rc-site'); toast('현장을 지웠습니다'); }
+  catch (err) { toast('지우지 못했습니다 (' + errCode(err) + ')'); }
+  drawAdmNav(); drawAdmMain();
+}
+
+/* ---------- 담당자 ---------- */
+let STAFF_ACL = {};
+const memberEmail = mid => Object.keys(STAFF_ACL).find(k => STAFF_ACL[k] && STAFF_ACL[k].memberId === mid) || '';
 function drawStaffAdm(main) {
-  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">오늘 처리 현황과 담당 구역</p></div></div>
-    <div class="staff-grid">${STAFF.map(s => {
-      const mine = todays().filter(t => t.staffId === s.id), done = mine.filter(t => t.status === 'done');
-      const avg = done.length ? Math.round(done.reduce((a, t) => a + (t.doneAt - t.createdAt), 0) / done.length / M) : 0;
-      const over = mine.filter(isOver).length, now = mine.filter(t => t.status === 'going');
-      return `<article class="card staff-card"><div class="sc-top"><span class="st-avatar">${esc(s.name[0])}</span><div><b>${esc(s.name)}</b><div class="hint">${esc(s.role)} · ${esc(s.zoneLabel)}</div></div><span class="duty">근무 중</span></div>
-        <dl class="sc-stats"><div><dt>오늘 완료</dt><dd>${done.length}</dd></div><div><dt>평균</dt><dd>${avg}분</dd></div><div><dt>기준 초과</dt><dd class="${over ? 'bad' : ''}">${over}</dd></div></dl>
-        <p class="hint" style="margin:0">${now.length ? '지금: ' + now.map(t => esc(locShort(t) + ' ' + issueLabel(t.issue))).join(', ') : '지금 처리 중인 건 없음'}</p></article>`;
-    }).join('')}</div>
-    <section class="card"><h3>담당 구역</h3><div class="tbl-wrap"><table class="tbl zone"><thead><tr><th>층</th>${STAFF.map(s => `<th>${esc(s.name)} <span class="hint">${esc(s.role)}</span></th>`).join('')}</tr></thead><tbody>${FLOORS.map(f => `<tr><td class="mono">${f}</td>${STAFF.map(s => s.zone.includes(f) ? '<td class="on">●</td>' : '<td class="off">·</td>').join('')}</tr>`).join('')}</tbody></table></div></section>`;
+  const noLogin = Object.keys(STAFF_ACL).filter(k => !STAFF_ACL[k] || !STAFF_ACL[k].memberId || !STAFF.some(m => m.id === STAFF_ACL[k].memberId));
+  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">담당자 앱에 들어올 사람과 맡을 구역입니다. 현장·층을 비워 두면 모든 현장·전 층 알림을 받습니다. 바꾸면 바로 저장됩니다.</p></div></div>
+    <section class="card"><h3>담당자 ${STAFF.length}명</h3><div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>이름</th><th>로그인 Google 계정</th><th>역할</th><th>현장</th><th>층 (비우면 전 층)</th><th>오늘 완료</th><th>지금</th><th></th></tr></thead><tbody>
+    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}"><td><b>${esc(m.name)}</b></td><td class="mono">${esc(memberEmail(m.id) || '—')}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td><button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="8" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
+    </tbody></table></div>
+    ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정: ${noLogin.map(k => `<span class="mono">${esc(k)}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
+    <div class="set-grid">
+    <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="email" id="maEmail" placeholder="Google 이메일" required aria-label="Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
+      <p class="hint" style="margin:8px 0 0">추가한 사람은 담당자 앱 주소에서 이 Google 계정으로 로그인하면 바로 들어옵니다. 관리자 계정도 여기 넣으면 담당자로 알림을 받습니다.</p></section>
+    <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, 이메일」 — 역할을 붙이려면 「이름, 이메일, 시설」. 이미 등록된 이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, gildong@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
+    </div>`;
 }
+async function addMember(name, email, role) {
+  name = String(name || '').trim().slice(0, 20); email = String(email || '').trim().toLowerCase();
+  if (!name || !/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(email)) return 'bad';
+  if (STAFF_ACL[email] && STAFF_ACL[email].memberId && STAFF.some(m => m.id === STAFF_ACL[email].memberId)) return 'skip';
+  const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), now = Date.now();
+  const batch = DB.batch();
+  batch.set(DB.doc('members/' + id), { id, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
+  batch.set(DB.doc('staff/' + email), { memberId: id, name, at: now, by: AUTH.email });
+  await batch.commit();
+  STAFF_ACL[email] = { memberId: id, name };
+  return 'ok';
+}
+async function addMemberForm() {
+  const r = await addMember($('#maName').value, $('#maEmail').value, $('#maRole').value).catch(e => 'err:' + errCode(e));
+  if (r === 'ok') { toast('담당자를 추가했습니다'); $('#maName').value = ''; $('#maEmail').value = ''; }
+  else toast(r === 'skip' ? '이미 등록된 이메일입니다' : r === 'bad' ? '이름과 이메일을 확인해 주세요' : '추가하지 못했습니다 (' + r.slice(4) + ')');
+}
+async function addMembersBulk() {
+  const lines = (AS.bulk != null ? AS.bulk : ($('#memBulk').value || '')).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  if (!lines.length) { toast('붙여 넣은 줄이 없습니다'); return; }
+  const cnt = { ok: 0, skip: 0, bad: 0, err: 0 };
+  toast('등록하는 중…');
+  for (const ln of lines) {
+    const [name, email, role] = ln.split(/\s*[,\t]\s*/);
+    const r = await addMember(name, email, (role || '').trim()).catch(() => 'err');
+    cnt[r.startsWith('err') ? 'err' : r]++;
+  }
+  toast(`등록 ${cnt.ok}명${cnt.skip ? ' · 이미 있음 ' + cnt.skip : ''}${cnt.bad ? ' · 형식 오류 ' + cnt.bad : ''}${cnt.err ? ' · 실패 ' + cnt.err : ''}`);
+  if (!cnt.bad && !cnt.err) { AS.bulk = ''; const t = $('#memBulk'); if (t) t.value = ''; }
+}
+async function updateMember(mid, patch) {
+  try { await DB.doc('members/' + mid).update(patch); } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
+}
+async function deleteMember(mid) {
+  const m = STAFF.find(x => x.id === mid); if (!m) return;
+  const em = memberEmail(mid);
+  if (!await askConfirm(`${m.name} 님을 담당자에서 뺄까요?${em ? ' ' + em + ' 계정의 담당자 앱 로그인도 막힙니다.' : ''}`, '빼기')) return;
+  try { const batch = DB.batch(); batch.delete(DB.doc('members/' + mid)); if (em) batch.delete(DB.doc('staff/' + em)); await batch.commit(); toast('뺐습니다'); }
+  catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); }
+}
+
+/* ---------- 설정 ---------- */
 function drawSettings(main) {
   const icons = { paper: '휴지', soap: '비누', clog: '변기', floor: '물방울', odor: '냄새', trash: '쓰레기통', sink: '수도', light: '전구', etc: '공구', baby: '교환대', bell: '종' };
   main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_settings'))}</h1><p class="hint">불편 항목과 조치 기준 시간을 정합니다. 바꾸면 모든 기기에 바로 적용됩니다. 화면에 보이는 이름·순서·숨김은 「화면 편집」에서 바꿉니다.</p></div></div>
     <div class="set-grid">
     <section class="card"><h3>불편 항목</h3><div class="tbl-wrap"><table class="tbl set"><thead><tr><th></th><th>이름</th><th>누가 처리</th><th>기준 시간</th><th>칸 물어보기</th><th>오늘 접수</th><th></th></tr></thead><tbody>
-      ${OPS.issues.map(i => { const used = TICKETS.filter(t => t.issue === i.code).length; return `<tr><td>${svg(i.icon)}</td><td>${esc(issueLabel(i.code))}</td><td><select data-set="cat" data-code="${i.code}" aria-label="처리 담당"><option value="clean" ${i.cat === 'clean' ? 'selected' : ''}>층 청소 담당</option><option value="fac" ${i.cat === 'fac' ? 'selected' : ''}>시설 담당</option></select></td><td><input type="number" class="num" min="1" max="240" value="${i.sla}" data-set="sla" data-code="${i.code}" aria-label="기준 시간(분)"> 분</td><td><input type="checkbox" data-set="stall" data-code="${i.code}" ${i.stall ? 'checked' : ''} aria-label="칸 물어보기"></td><td class="mono">${used}</td><td><button type="button" class="b danger" data-act="delIssue" data-code="${i.code}" ${used ? 'disabled title="접수에 쓰인 항목은 지울 수 없습니다"' : ''}>지우기</button></td></tr>`; }).join('')}
+      ${OPS.issues.map(i => { const used = TICKETS.filter(t => t.issue === i.code).length; return `<tr><td>${svg(i.icon)}</td><td>${esc(issueLabel(i.code))}</td><td><select data-set="cat" data-code="${i.code}" aria-label="처리 담당"><option value="clean" ${i.cat === 'clean' ? 'selected' : ''}>청소 담당</option><option value="fac" ${i.cat === 'fac' ? 'selected' : ''}>시설 담당</option></select></td><td><input type="number" class="num" min="1" max="240" value="${i.sla}" data-set="sla" data-code="${i.code}" aria-label="기준 시간(분)"> 분</td><td><input type="checkbox" data-set="stall" data-code="${i.code}" ${i.stall ? 'checked' : ''} aria-label="칸 물어보기"></td><td class="mono">${used}</td><td><button type="button" class="b danger" data-act="delIssue" data-code="${i.code}" ${used ? 'disabled title="접수에 쓰인 항목은 지울 수 없습니다"' : ''}>지우기</button></td></tr>`; }).join('')}
     </tbody></table></div>
-    <form class="add-issue" id="addIssue"><b>항목 추가</b><input type="text" id="aiName" maxlength="20" placeholder="예: 기저귀 교환대" required aria-label="새 항목 이름"><select id="aiIcon" aria-label="아이콘">${Object.keys(icons).map(c => `<option value="${c}">아이콘: ${icons[c]}</option>`).join('')}</select><select id="aiCat" aria-label="처리 담당"><option value="clean">층 청소 담당</option><option value="fac">시설 담당</option></select><input type="number" class="num" id="aiSla" value="15" min="1" max="240" aria-label="기준 시간(분)"><span class="hint">분</span><button type="submit" class="b primary">추가</button></form></section>
+    <form class="add-issue" id="addIssue"><b>항목 추가</b><input type="text" id="aiName" maxlength="20" placeholder="예: 기저귀 교환대" required aria-label="새 항목 이름"><select id="aiIcon" aria-label="아이콘">${Object.keys(icons).map(c => `<option value="${c}">아이콘: ${icons[c]}</option>`).join('')}</select><select id="aiCat" aria-label="처리 담당"><option value="clean">청소 담당</option><option value="fac">시설 담당</option></select><input type="number" class="num" id="aiSla" value="15" min="1" max="240" aria-label="기준 시간(분)"><span class="hint">분</span><button type="submit" class="b primary">추가</button></form></section>
     <section class="card"><h3>알림 기준</h3><dl class="rules">
       <dt>같은 불편 묶기</dt><dd><select data-set="dedupe" aria-label="묶는 시간"><option value="30" ${OPS.dedupeMin === 30 ? 'selected' : ''}>30분</option><option value="60" ${OPS.dedupeMin === 60 ? 'selected' : ''}>1시간</option><option value="120" ${OPS.dedupeMin === 120 ? 'selected' : ''}>2시간</option></select> 안에 같은 화장실·같은 불편이 다시 들어오면 한 건으로 묶고 신고 횟수만 올립니다</dd>
+      <dt>누구에게 가나</dt><dd>그 화장실을 맡은 담당(청소/시설)이 한 명이면 그 사람에게 배정, 여럿이거나 없으면 ‘미배정’으로 맡은 사람 모두에게 알리고 먼저 「출동하기」를 누른 사람이 맡습니다</dd>
       <dt>시간 색</dt><dd>기준 시간의 70%가 지나면 주황, 넘으면 빨강</dd>
-      <dt>긴급 도움</dt><dd>층 청소 담당 + 방재실에 함께 알림 · 기준 시간 3분</dd>
+      <dt>긴급 도움</dt><dd>청소 담당 모두에게 빨간 알림 · 기준 시간 3분</dd>
       <dt>고객 재접수</dt><dd>완료 뒤 고객이 「아직 그대로예요」를 누르면 다시 대기로 돌아가고 ‘재접수’ 표시가 붙습니다</dd>
+      <dt>알림</dt><dd>담당자 앱이 열려 있을 때 소리·진동으로 옵니다. 필드테스트 동안에는 담당자 앱을 켜 둔 채 「알림음 켜기」를 눌러 두세요</dd>
     </dl></section>
-    <section class="card"><h3>담당자 로그인 허용</h3><p class="hint" style="margin:0 0 10px">여기 등록한 Google 계정만 담당자 앱에 들어올 수 있습니다. 관리자 계정은 따로 등록하지 않아도 됩니다.</p>
-      <ul class="acl">${STAFF_EMAILS.length ? STAFF_EMAILS.map(e => `<li><span class="mono">${esc(e)}</span><button type="button" class="b danger" data-act="aclDel" data-email="${esc(e)}">빼기</button></li>`).join('') : '<li class="hint">아직 없습니다</li>'}</ul>
-      <form class="add-issue" id="aclAdd"><input type="email" id="aclEmail" placeholder="담당자 Google 이메일" required aria-label="담당자 이메일"><button type="submit" class="b primary">추가</button></form></section>
-    <section class="card"><h3>시연 자료</h3><p class="hint" style="margin:0 0 10px">접수 기록은 Firebase(space-restroom)에 쌓여 모든 기기가 같이 봅니다. 지금 ${TICKETS.length}건.</p>
-      <div class="demo-actions"><button type="button" class="b" data-act="demoFill">예시 자료 넣기 (약 25건)</button><button type="button" class="b danger" data-act="demoClear">접수 기록 모두 지우기</button></div></section>
+    <section class="card"><h3>시험 자료 정리</h3><p class="hint" style="margin:0 0 10px">접수 기록은 모든 기기가 같이 봅니다. 지금 ${TICKETS.length}건. 필드테스트를 마치고 실제 운영 전에 비울 때 씁니다.</p>
+      <div class="demo-actions"><button type="button" class="b danger" data-act="demoClear">접수 기록 모두 지우기</button></div></section>
     </div>`;
 }
 function saveOps() {
   if (DB) return DB.doc('config/ops').set(JSON.parse(JSON.stringify(OPS))).catch(e => toast('설정을 저장하지 못했습니다 (' + errCode(e) + ')'));
   dispatch([]); return Promise.resolve();
-}
-async function aclAdd() {
-  const em = ($('#aclEmail').value || '').trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { toast('이메일 형식을 확인해 주세요'); return; }
-  try { await DB.doc('staff/' + em).set({ at: Date.now(), by: AUTH.email }); toast(em + ' 계정을 담당자로 등록했습니다'); } catch (e) { toast('등록하지 못했습니다 (' + errCode(e) + ')'); }
 }
 function addIssue() {
   const name = $('#aiName').value.trim().slice(0, 20); if (!name) return;
@@ -1971,7 +2163,10 @@ function addIssue() {
   OPS.issues.push({ code, label: name, icon: $('#aiIcon').value, sla: Math.min(240, Math.max(1, +$('#aiSla').value || 15)), cat: $('#aiCat').value, stall: false });
   saveOps(); drawAdmMain(); toast('‘' + name + '’ 항목을 추가했습니다. 고객 화면 타일에도 나옵니다.');
 }
+
+/* ---------- QR 스티커 · 인쇄 ---------- */
 function qrCanvas(text, size) { const d = document.createElement('div'); new window.QRCode(d, { text, width: size, height: size, colorDark: '#111A26', colorLight: '#FFFFFF', correctLevel: window.QRCode.CorrectLevel.M }); return d.querySelector('canvas'); }
+function fitFont(g, text, weight, size, family, maxW) { let fs = size; g.font = `${weight} ${fs}px ${family}`; while (g.measureText(text).width > maxW && fs > 12) { fs--; g.font = `${weight} ${fs}px ${family}`; } }
 function drawSticker(g, room, x, y, w) {
   const s = w / 600;
   g.save(); g.translate(x, y); g.scale(s, s);
@@ -1980,14 +2175,15 @@ function drawSticker(g, room, x, y, w) {
   g.strokeStyle = '#C9CFC6'; g.lineWidth = 3; g.setLineDash([14, 10]); g.strokeRect(2, 2, 596, 696); g.setLineDash([]);
   g.fillStyle = '#111A26'; g.fillRect(0, 0, 600, 124);
   g.fillStyle = '#F2B01E'; g.fillRect(30, 27, 118, 70);
-  g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#15110A'; g.font = '700 50px "IBM Plex Mono", monospace'; g.fillText(room.floor, 89, 63);
-  g.textAlign = 'left'; g.fillStyle = '#F1F2EC'; g.font = '700 42px ' + F; g.fillText(TYPE_KO[room.type], 170, 50);
-  g.fillStyle = '#93A0B0'; g.font = '500 28px ' + F; g.fillText(sideName(room) + ' · ' + SITE, 170, 94);
+  g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#15110A'; fitFont(g, room.floor, 700, 50, '"IBM Plex Mono", monospace', 108); g.fillText(room.floor, 89, 63);
+  g.textAlign = 'left'; g.fillStyle = '#F1F2EC'; fitFont(g, TYPE_KO[room.type] + roomNo(room), 700, 42, F, 400); g.fillText(TYPE_KO[room.type] + roomNo(room), 170, 50);
+  g.fillStyle = '#93A0B0'; fitFont(g, room.siteName, 500, 27, F, 400); g.fillText(room.siteName, 170, 94);
   const q = qrCanvas(qrURL(room.id), 360);
-  if (q) { g.imageSmoothingEnabled = false; g.drawImage(q, 120, 150, 360, 360); }
+  if (q) { g.imageSmoothingEnabled = false; g.drawImage(q, 120, 146, 360, 360); }
   g.textAlign = 'center'; g.fillStyle = '#18222F'; g.font = '700 36px ' + F;
-  g.fillText('불편한 점이 있으면', 300, 560); g.fillText('휴대폰 카메라로 찍어 주세요', 300, 608);
-  g.fillStyle = '#5C6674'; g.font = '400 23px ' + F; g.fillText('앱 설치 없이 바로 접수 · 이름·전화번호는 받지 않습니다', 300, 660);
+  g.fillText('불편한 점이 있으면', 300, 553); g.fillText('휴대폰 카메라로 찍어 주세요', 300, 601);
+  g.fillStyle = '#5C6674'; g.font = '400 21px ' + F; g.fillText('앱 설치 없이 바로 접수 · 이름·전화번호는 받지 않습니다', 300, 648);
+  g.fillStyle = '#9AA3AE'; g.font = '400 17px "IBM Plex Mono", monospace'; g.fillText(room.id, 300, 680);
   g.restore();
 }
 async function saveCanvas(c, filename) {
@@ -1996,58 +2192,68 @@ async function saveCanvas(c, filename) {
   try { await DL.save({ filename, data: blob }); } catch (e) { if (e && e.code !== 'declined') toast('저장하지 못했습니다 (' + errCode(e) + ')'); }
 }
 async function saveSticker(room) {
+  if (!room) return;
   if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
   const c = document.createElement('canvas'); c.width = 1200; c.height = 1400;
   drawSticker(c.getContext('2d'), room, 0, 0, 1200);
   await saveCanvas(c, 'QR스티커_' + room.id + '.png');
 }
-async function saveSheet() {
+async function fontsReady() { try { if (document.fonts) { await document.fonts.load('700 36px "IBM Plex Sans KR"'); await document.fonts.load('700 50px "IBM Plex Mono"'); } } catch (e) { /* 무시 */ } }
+// A4 한 장에 2×2 (큰 스티커) — 4곳이 넘으면 여러 장
+async function saveSheet(sid) {
   if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
-  const c = document.createElement('canvas'); c.width = 2480; c.height = 3508;
-  const g = c.getContext('2d');
-  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height);
-  const mx = 110, gap = 40, cw = (2480 - mx * 2 - gap * 3) / 4, ch = cw * 7 / 6;
-  ROOMS.forEach((r, i) => { const col = i % 4, row = Math.floor(i / 4); drawSticker(g, r, mx + col * (cw + gap), 110 + row * (ch + gap), cw); });
-  g.fillStyle = '#5C6674'; g.font = '400 34px "IBM Plex Sans KR", "Malgun Gothic", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.fillText(`화장실 불편접수 시연용 QR 스티커 · ${SITE} (예시) 5개 층 20곳 · 점선을 따라 자르세요`, 1240, 3440);
-  await saveCanvas(c, 'QR스티커_20장_A4.png');
+  const st = siteById(sid), rs = ROOMS.filter(r => r.site === sid); if (!st || !rs.length) return;
+  await fontsReady();
+  const pages = Math.ceil(rs.length / 4);
+  for (let p = 0; p < pages; p++) {
+    const c = document.createElement('canvas'); c.width = 2480; c.height = 3508;
+    const g = c.getContext('2d');
+    g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height);
+    const mx = 150, gap = 80, cw = (2480 - mx * 2 - gap) / 2, ch = cw * 7 / 6;
+    rs.slice(p * 4, p * 4 + 4).forEach((r, i) => drawSticker(g, r, mx + (i % 2) * (cw + gap), 170 + Math.floor(i / 2) * (ch + gap), cw));
+    g.fillStyle = '#5C6674'; g.font = '400 36px "IBM Plex Sans KR", "Malgun Gothic", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillText(`${st.name} · 화장실 불편접수 QR · ${p + 1}/${pages}장 · 점선을 따라 자르세요`, 1240, 3400);
+    await saveCanvas(c, `QR스티커_${st.name.replace(/[\\/:*?"<>|\s]+/g, '_')}_${p + 1}.png`);
+  }
+}
+async function printSite(sid) {
+  if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
+  const st = siteById(sid), rs = ROOMS.filter(r => r.site === sid); if (!st || !rs.length) return;
+  toast('인쇄 화면을 준비합니다…');
+  await fontsReady();
+  const imgs = rs.map(r => { const c = document.createElement('canvas'); c.width = 1200; c.height = 1400; drawSticker(c.getContext('2d'), r, 0, 0, 1200); return c.toDataURL('image/png'); });
+  let box = $('#printArea');
+  if (!box) { box = document.createElement('div'); box.id = 'printArea'; document.body.appendChild(box); }
+  const pages = []; for (let i = 0; i < imgs.length; i += 4) pages.push(imgs.slice(i, i + 4));
+  box.innerHTML = pages.map((pg, pi) => `<section class="pp">${pg.map(src => `<img src="${src}" alt="">`).join('')}<p class="pp-foot">${esc(st.name)} · 화장실 불편접수 QR · ${pi + 1}/${pages.length}장 · 점선을 따라 자르세요</p></section>`).join('');
+  await Promise.all(Array.from(box.querySelectorAll('img')).map(im => (im.decode ? im.decode().catch(() => {}) : null)));
+  const clear = () => { window.removeEventListener('afterprint', clear); setTimeout(() => { box.innerHTML = ''; }, 500); };
+  window.addEventListener('afterprint', clear);
+  window.print();
 }
 async function exportCSV() {
   if (!DL) { toast('이 보기에서는 파일 저장이 안 됩니다'); return; }
-  const rows = [['id', 'created_at_kst', 'floor', 'restroom', 'stall', 'issue', 'status', 'staff', 'reports', 'reopened', 'ack_min', 'done_min', 'over_sla', 'emergency', 'action']];
+  const rows = [['id', 'created_at_kst', 'site', 'floor', 'restroom', 'stall', 'issue', 'status', 'staff', 'reports', 'reopened', 'ack_min', 'done_min', 'over_sla', 'emergency', 'action']];
   filteredTickets().filter(t => matchStatus(t, AS.f.status)).sort((a, b) => a.createdAt - b.createdAt).forEach(t => {
-    const o = kst(t.createdAt);
-    rows.push([t.id, `${o.year}-${o.month}-${o.day} ${o.hour}:${o.minute}`, (rById(t.roomId) || {}).floor || '', t.roomId, t.stall || '', t.issue, t.status, t.staffId, t.reports || 1, t.reopened || 0, t.ackAt ? mins(t.ackAt - t.createdAt) : '', t.doneAt ? mins(t.doneAt - t.createdAt) : '', isOver(t) ? 1 : 0, t.emergency ? 1 : 0, t.action || '']);
+    const o = kst(t.createdAt), r = rById(t.roomId) || {};
+    rows.push([t.id, `${o.year}-${o.month}-${o.day} ${o.hour}:${o.minute}`, r.siteName || t.siteId || '', r.floor || '', t.roomId, t.stall || '', issueLabel(t.issue), t.status, sById(t.staffId).name, t.reports || 1, t.reopened || 0, t.ackAt ? mins(t.ackAt - t.createdAt) : '', t.doneAt ? mins(t.doneAt - t.createdAt) : '', isOver(t) ? 1 : 0, t.emergency ? 1 : 0, t.action || '']);
   });
   const csv = rows.map(r => r.map(v => { const s = String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\r\n');
   try { await DL.save({ filename: '불편접수_' + kstDate() + '.csv', data: '﻿' + csv }); } catch (e) { if (e && e.code !== 'declined') toast('내보내지 못했습니다 (' + errCode(e) + ')'); }
 }
-async function demoFill() {
-  if (!await askConfirm('예시 접수 약 25건과 ‘깨끗해요’ 기록을 오늘 날짜로 넣을까요? 지금 있는 자료는 그대로 둡니다.', '넣기')) return;
-  const list = genDemo(), fb = demoFeedback();
-  if (DB) {
-    toast('넣는 중… 잠시만 기다려 주세요');
-    for (const t of list) { try { await DB.collection('tickets').doc(t.id).set(t); } catch (e) { toast('일부를 넣지 못했습니다 (' + errCode(e) + ')'); return; } }
-    for (const rid of Object.keys(fb)) { try { await DB.doc('feedback/' + kstDate() + '_' + rid).set({ day: kstDate(), roomId: rid, n: (FEEDBACK[rid] || 0) + fb[rid], at: Date.now() }); } catch (e) { /* 무시 */ } }
-  } else { TICKETS = list.concat(TICKETS); Object.keys(fb).forEach(k => { FEEDBACK[k] = (FEEDBACK[k] || 0) + fb[k]; }); dispatch([]); }
-  toast('예시 자료를 넣었습니다');
-  if (AS.sub === 'settings') drawAdmMain();
-}
 async function demoClear() {
-  if (!await askConfirm('접수 기록·‘깨끗해요’ 기록·첨부 사진을 모두 지울까요? 되돌릴 수 없습니다. 화면 편집 설정과 화면 메모는 남습니다.', '모두 지우기')) return;
-  if (DB) {
-    toast('지우는 중…');
-    try {
-      const snap = await DB.collection('tickets').get();
-      for (const d of snap.docs) {
-        const t = d.data();
-        for (const p of [t.photo, t.afterPhoto]) { if (p && p.pid) { try { await DB.doc('photos/' + p.pid).delete(); } catch (e) { /* 무시 */ } } }
-        await DB.doc('tickets/' + d.id).delete();
-      }
-      const fs = await DB.collection('feedback').get();
-      for (const d of fs.docs) await DB.doc('feedback/' + d.id).delete();
-    } catch (e) { toast('일부를 지우지 못했습니다 (' + errCode(e) + ')'); return; }
-  } else { TICKETS = []; FEEDBACK = {}; dispatch([]); }
+  if (!await askConfirm('접수 기록·‘깨끗해요’ 기록·첨부 사진을 모두 지울까요? 되돌릴 수 없습니다. 현장·담당자·화면 편집 설정·화면 메모는 남습니다.', '모두 지우기')) return;
+  toast('지우는 중…');
+  try {
+    const snap = await DB.collection('tickets').get();
+    for (const d of snap.docs) {
+      const t = d.data();
+      for (const p of [t.photo, t.afterPhoto]) { if (p && p.pid) { try { await DB.doc('photos/' + p.pid).delete(); } catch (e) { /* 무시 */ } } }
+      await DB.doc('tickets/' + d.id).delete();
+    }
+    const fs = await DB.collection('feedback').get();
+    for (const d of fs.docs) await DB.doc('feedback/' + d.id).delete();
+  } catch (e) { toast('일부를 지우지 못했습니다 (' + errCode(e) + ')'); return; }
   toast('접수 기록을 모두 지웠습니다');
   if (AS.sub === 'settings') drawAdmMain();
 }
@@ -2062,9 +2268,19 @@ async function admClick(e) {
   if (act === 'clearRoom') { AS.f.room = ''; drawAdmMain(); }
   else if (act === 'csv') exportCSV();
   else if (act === 'qrsave') saveSticker(rById(AS.selRoom));
-  else if (act === 'sheet') saveSheet();
+  else if (act === 'sheet') saveSheet(b.dataset.site);
+  else if (act === 'printSite') printSite(b.dataset.site);
   else if (act === 'openCustomer') { S.qrRoom = AS.selRoom; S.view = 'qr'; render(); window.scrollTo(0, 0); }
-  else if (act === 'demoFill') demoFill();
+  else if (act === 'siteNew') editSite('');
+  else if (act === 'siteEdit') editSite(b.dataset.site);
+  else if (act === 'siteSel') { AS.site = b.dataset.site; LS.set('rc-site', AS.site); AS.selRoom = ''; drawAdmNav(); drawAdmMain(); }
+  else if (act === 'siteCancel') { AS.edit = null; drawAdmMain(); }
+  else if (act === 'siteSave') saveSite();
+  else if (act === 'siteDel') deleteSite();
+  else if (act === 'rowAdd' && AS.edit) { const last = AS.edit.rows[AS.edit.rows.length - 1]; AS.edit.rows.push({ floor: last ? (last.floor || '') : '1F', type: last && last.type === 'M' ? 'W' : 'M', stalls: 1, urinals: last && last.type === 'M' ? 0 : 1 }); drawAdmMain(); }
+  else if (act === 'rowDel' && AS.edit) { AS.edit.rows.splice(+b.dataset.row, 1); drawAdmMain(); }
+  else if (act === 'memBulk') addMembersBulk();
+  else if (act === 'memDel') { const tr = b.closest('[data-mid]'); if (tr) deleteMember(tr.dataset.mid); }
   else if (act === 'aclDel') { const em = b.dataset.email; if (await askConfirm(em + ' 계정의 담당자 로그인을 막을까요?', '빼기')) { try { await DB.doc('staff/' + em).delete(); } catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); } } }
   else if (act === 'demoClear') demoClear();
   else if (act === 'delIssue') {
@@ -2077,9 +2293,24 @@ async function admClick(e) {
 }
 function admChange(e) {
   const id = e.target.id;
+  if (id === 'admSite') {
+    const v = e.target.value;
+    if (v === '__add') { editSite(''); return; }
+    AS.site = v; LS.set('rc-site', v); AS.selRoom = ''; AS.f.floor = ''; drawAdmNav(); drawAdmMain(); return;
+  }
   if (id === 'fFloor') { AS.f.floor = e.target.value; drawListTable(); return; }
   if (id === 'fIssue') { AS.f.issue = e.target.value; drawListTable(); return; }
   if (id === 'fPeriod') { AS.f.period = e.target.value; drawListTable(); return; }
+  if (e.target.dataset.rf === 'type' && AS.edit) { const r = AS.edit.rows[+e.target.dataset.row]; if (r) { r.type = e.target.value; if (r.type === 'W') r.urinals = 0; } drawAdmMain(); return; }
+  const mf = e.target.dataset.mf;
+  if (mf) {
+    const tr = e.target.closest('[data-mid]'); if (!tr) return;
+    const mid = tr.dataset.mid;
+    if (mf === 'role') updateMember(mid, { role: e.target.value === '시설' ? '시설' : '청소' });
+    else if (mf === 'site') updateMember(mid, { sites: e.target.value ? [e.target.value] : [], floors: [] });
+    else if (mf === 'floor') updateMember(mid, { floors: $$('[data-mf="floor"]', tr).filter(x => x.checked).map(x => x.value) });
+    return;
+  }
   const set = e.target.dataset.set;
   if (set === 'dedupe') { OPS.dedupeMin = +e.target.value || 60; saveOps(); return; }
   if (set) {
@@ -2090,7 +2321,14 @@ function admChange(e) {
     saveOps();
   }
 }
-function admInput(e) { if (e.target.id === 'fQ') { AS.f.q = e.target.value; clearTimeout(admInput.tm); admInput.tm = setTimeout(drawListTable, 180); } }
+function admInput(e) {
+  if (e.target.id === 'fQ') { AS.f.q = e.target.value; clearTimeout(admInput.tm); admInput.tm = setTimeout(drawListTable, 180); return; }
+  if (e.target.id === 'memBulk') { AS.bulk = e.target.value; return; }
+  if (!AS.edit) return;
+  if (e.target.dataset.ed) { AS.edit[e.target.dataset.ed] = e.target.value; return; }
+  const rf = e.target.dataset.rf;
+  if (rf && rf !== 'type') { const r = AS.edit.rows[+e.target.dataset.row]; if (r) r[rf] = e.target.value; }
+}
 
 /* ---------- 접수 상세 팝업 ---------- */
 function timelineHTML(t) { return (t.log || []).slice().sort((a, b) => a.t - b.t).map((x, i) => `<li><time>${hm(x.t)}</time>${esc(x.text)}${i ? `<em>+${mins(x.t - t.createdAt)}분</em>` : ''}</li>`).join(''); }
@@ -2105,7 +2343,7 @@ function detailField(k, t) {
     case 'field.detail.issue': body = `<div class="dt-issue">${svg(issueDef(t.issue).icon)}<b>${esc(issueLabel(t.issue))}</b>${t.stall ? `<span class="hint">${esc(stallKo(t.stall))}</span>` : ''}</div>`; break;
     case 'field.detail.reports': body = `<div><b class="mono">${t.reports || 1}</b>회${(t.reports || 1) > 1 ? ' <span class="hint">· 같은 불편이 다시 들어와 한 건으로 묶었습니다</span>' : ''}${t.reopened ? ` <span class="chip new">재접수 ${t.reopened}회</span>` : ''}</div>`; break;
     case 'field.detail.cnote': body = `<div>${t.note ? esc(t.note) : '<span class="hint">없음</span>'}</div>`; break;
-    case 'field.detail.staff': body = `<select id="dtStaff" aria-label="담당자">${STAFF.map(s => `<option value="${s.id}" ${s.id === t.staffId ? 'selected' : ''}>${esc(s.name)} · ${esc(s.role)} ${esc(s.zoneLabel)}</option>`).join('')}</select>`; break;
+    case 'field.detail.staff': body = `<select id="dtStaff" aria-label="담당자"><option value="" ${t.staffId ? '' : 'selected'}>미배정 (맡은 사람 모두에게 알림)</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === t.staffId ? 'selected' : ''}>${esc(s.name)} · ${esc(s.role)} · ${esc(s.zoneLabel)}</option>`).join('')}</select>`; break;
     case 'field.detail.note': body = `<textarea id="dtNote" rows="3" maxlength="500" placeholder="관리자만 보는 메모" aria-label="관리자 메모">${esc(t.adminNote || '')}</textarea>`; break;
     case 'field.detail.timeline': body = `<ol class="tl" id="dtTL">${timelineHTML(t)}</ol>`; break;
     case 'field.detail.photos': body = `<div id="dtPh">${photosHTML(t)}</div>`; break;
@@ -2432,7 +2670,17 @@ document.addEventListener('click', e => {
 let UNSUBS = [];
 const TRACKED = {}, TRACK_UNSUB = {};
 let CUST_MERGE = null;
-let STAFF_EMAILS = [];
+let MEMBERS_RAW = [];
+function onSitesChanged() {
+  if (S.full === 'customer') { if (!QS.el || !document.body.contains(QS.el)) render(); else if (QS.draw) QS.draw(); return; }
+  if (S.full === 'staff') { if (SS.el && document.body.contains(SS.el) && SS.draw) SS.draw(); else render(); return; }
+  if (S.view === 'admin' && AS.el && document.body.contains(AS.el)) { drawAdmNav(); if (!(AS.sub === 'rooms' && AS.edit)) drawAdmMain(); return; }
+  render();
+}
+function onMembersChanged() {
+  dispatch([]);
+  if (!S.full && S.view === 'admin' && AS.sub === 'staff' && AS.el && document.body.contains(AS.el)) drawAdmMain();
+}
 function unsubAll() { UNSUBS.forEach(u => { try { u(); } catch (e) { /* 무시 */ } }); UNSUBS = []; Object.keys(TRACK_UNSUB).forEach(k => delete TRACK_UNSUB[k]); CUST_MERGE = null; }
 function trackTicket(id) {
   if (!id || TRACK_UNSUB[id] || !AUTH.user || AUTH.role === 'admin' || AUTH.role === 'staff') return;
@@ -2441,6 +2689,11 @@ function trackTicket(id) {
 }
 function startSubs() {
   unsubAll(); DATA_READY = false; TICKETS = [];
+  UNSUBS.push(DB.collection('sites').onSnapshot(q => {
+    SITES = q.docs.map(d => Object.assign({ id: d.id }, d.data())); rebuildRooms(); SITES_READY = true;
+    if (MEMBERS_RAW.length) setMembers(MEMBERS_RAW);
+    onSitesChanged();
+  }, e => { SITES_READY = true; toast('현장 정보를 불러오지 못했습니다 (' + errCode(e) + ')'); render(); }));
   UNSUBS.push(DB.doc('config/ops').onSnapshot(s => { applyOps(s.exists ? s.data() : null); dispatch([]); if (S.view === 'admin' && AS.sub === 'settings' && AS.el && !S.full) drawAdmMain(); }, () => {}));
   UNSUBS.push(DB.doc('config/ui').onSnapshot(s => {
     if (uiSaving || uiDirty || (s.metadata && s.metadata.hasPendingWrites)) return;
@@ -2453,6 +2706,7 @@ function startSubs() {
       const ev = DATA_READY ? diffEvents(TICKETS, next) : [];
       TICKETS = next; DATA_READY = true; dispatch(ev);
     }, e => toast('접수 기록을 불러오지 못했습니다 (' + errCode(e) + ')')));
+    UNSUBS.push(DB.collection('members').onSnapshot(q => { MEMBERS_RAW = q.docs.map(d => Object.assign({ id: d.id }, d.data())); setMembers(MEMBERS_RAW); onMembersChanged(); }, () => {}));
     UNSUBS.push(DB.collection('feedback').onSnapshot(q => {
       const f = {}, day = kstDate();
       q.docs.forEach(d => { const x = d.data(); if (x.day === day) f[x.roomId] = x.n || 0; });
@@ -2460,7 +2714,7 @@ function startSubs() {
     }, () => {}));
     if (AUTH.role === 'admin') {
       UNSUBS.push(DB.collection('notes').orderBy('at', 'desc').limit(500).onSnapshot(q => { NOTES = q.docs.map(d => Object.assign({}, d.data(), { id: d.id })); updateEditbar(); drawMemoList(); }, () => {}));
-      UNSUBS.push(DB.collection('staff').onSnapshot(q => { STAFF_EMAILS = q.docs.map(d => d.id).sort(); if (S.view === 'admin' && AS.sub === 'settings' && AS.el && !S.full) drawAdmMain(); }, () => {}));
+      UNSUBS.push(DB.collection('staff').onSnapshot(q => { STAFF_ACL = {}; q.docs.forEach(d => { STAFF_ACL[d.id] = d.data() || {}; }); if (!S.full && S.view === 'admin' && AS.sub === 'staff' && AS.el) drawAdmMain(); }, () => {}));
     }
   } else {
     const parts = { new: [], going: [] }, got = { new: false, going: false };
@@ -2482,16 +2736,19 @@ function startSubs() {
 AUTHX.getRedirectResult().catch(e => { if (e && e.code) toast('로그인하지 못했습니다 (' + e.code + ')'); });
 AUTHX.onAuthStateChanged(async u => {
   AUTH.user = u; AUTH.email = (u && u.email || '').toLowerCase();
-  let role = 'none';
+  let role = 'none', memberId = '';
   if (u) {
     if (u.isAnonymous) role = 'customer';
     else if (!u.emailVerified) role = 'denied';
     else {
-      try { await DB.collection('notes').limit(1).get(); role = 'admin'; }
-      catch (e) { try { const d = await DB.doc('staff/' + AUTH.email).get(); role = d.exists ? 'staff' : 'denied'; } catch (e2) { role = 'denied'; } }
+      try { await DB.collection('notes').limit(1).get(); role = 'admin'; } catch (e) { role = ''; }
+      try { const d = await DB.doc('staff/' + AUTH.email).get(); if (d.exists) { memberId = (d.data() || {}).memberId || ''; if (!role) role = 'staff'; } } catch (e2) { /* 무시 */ }
+      if (!role) role = 'denied';
     }
   }
-  AUTH.role = role; AUTH.ready = true;
+  AUTH.role = role; AUTH.memberId = memberId; AUTH.ready = true;
+  if (role === 'staff') SS.staffId = memberId;
+  else if (role === 'admin') SS.staffId = LS.get('rc-staff') || memberId || '';
   if (u) { const w = AUTH_WAIT; AUTH_WAIT = []; w.forEach(f => f()); }
   if (!u) {
     unsubAll(); TICKETS = []; DATA_READY = false;
@@ -2504,7 +2761,7 @@ AUTHX.onAuthStateChanged(async u => {
 document.addEventListener('click', e => { const p = e.target.closest('.pen'); if (p) { e.preventDefault(); e.stopPropagation(); openPen(p); } }, true);
 document.addEventListener('click', e => {
   const v = e.target.closest('[data-view]');
-  if (v && !e.target.closest('.pen')) { S.view = v.dataset.view; S.full = null; if (location.hash) history.replaceState(null, '', location.pathname); closeDetail(); render(); window.scrollTo(0, 0); }
+  if (v && !e.target.closest('.pen')) { S.view = v.dataset.view; if (v.dataset.gosub) AS.sub = v.dataset.gosub; S.full = null; if (location.hash) history.replaceState(null, '', location.pathname); closeDetail(); render(); window.scrollTo(0, 0); }
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
