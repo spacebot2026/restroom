@@ -581,6 +581,17 @@ body.fullmode main{padding:0}
 .gate-card .brand{justify-content:center}
 .gate-bad{margin:0;color:var(--new);font-size:13px}
 .gate-btn{justify-content:center;padding:10px 14px;font-size:14px}
+.gate-form{display:grid;gap:10px;text-align:left}
+.gate-form .fld input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:10px 12px;font-size:16px;color:var(--text)}
+.gate-or{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:12px}
+.gate-or::before,.gate-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.pw-modal{width:min(460px,100%)}
+.pw-modal .fld input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--text)}
+.pw-modal input#pwId,.pw-modal input#pwPw{font-family:var(--mono)}
+.pw-row{display:flex;gap:8px;align-items:center}
+.pw-row input{flex:1;min-width:0}
+.tbl.cred td{padding:6px 8px;font-size:14px}
+.nowrap{white-space:nowrap}
 .acct{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .acct span{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .acl{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:6px}
@@ -1038,7 +1049,7 @@ tr.mem-off b{color:var(--muted)}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1020';
+const BUILD = '20261012-1030';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1279,6 +1290,13 @@ const isToday = t => kstDay(t.createdAt) === kstDate();
 const todays = () => TICKETS.filter(t => t.status !== 'cancel' && isToday(t));
 const qrURL = roomId => BASE_URL + '#r-' + roomId.toLowerCase();
 const STAFF_URL = BASE_URL + '?app=staff';
+// ID/비밀번호 로그인: 직원은 ID만 입력하고, 앱이 뒤에 가짜 주소를 붙여 Firebase 이메일/비밀번호 로그인에 쓴다 (실제 메일은 오가지 않는다)
+const STAFF_MAIL_DOMAIN = 'staff.space-dust.com';
+const loginEmail = id => id + '@' + STAFF_MAIL_DOMAIN;
+const loginIdOf = em => { em = String(em || '').toLowerCase(); return em.endsWith('@' + STAFF_MAIL_DOMAIN) ? em.slice(0, -(STAFF_MAIL_DOMAIN.length + 1)) : ''; };
+const validLoginId = id => /^[a-z0-9][a-z0-9_-]{2,23}$/.test(id);
+const isPwUser = u => !!(u && !u.isAnonymous && loginIdOf(u.email) && (u.providerData || []).some(x => x && x.providerId === 'password'));
+function genPw() { const A = 'abcdefghjkmnpqrstuvwxyz23456789', a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, x => A[x % A.length]).join(''); }
 const CH = { qr: 'QR 휴대폰' };
 function newIdAt(ts, rnd) { const o = kst(ts); const r = rnd ? rnd() : Math.random(); return o.month + o.day + '-' + o.hour + o.minute + '-' + Math.floor(r * 1296).toString(36).toUpperCase().padStart(2, '0'); }
 const photoSrc = p => { if (!p) return ''; if (p.pid) { if (PHOTO_CACHE[p.pid]) return PHOTO_CACHE[p.pid]; loadPhoto(p.pid); return BLANK; } return p.data || p.url || ''; };
@@ -1684,7 +1702,7 @@ function mountStaff(el, ctx) {
     const { me, wait, mine, done } = staffLists();
     el.querySelector('.st-head').innerHTML = `${ctx.full ? '' : `<div class="sbar" style="padding-inline:12px"><span>${hm(Date.now())}</span><span>5G</span></div>`}
       <div class="st-who"><div class="st-avatar">${esc((me.name || '?')[0])}</div><div>${AUTH.role === 'admin' ? `<select data-in="staff" aria-label="누구로 볼지 고르기"><option value="" ${me.id ? '' : 'selected'}>관리자 (전체 보기)</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === me.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : `<b class="st-name">${esc(me.id ? me.name : (AUTH.email || '담당자'))}</b>`}<div class="st-zone">${me.id ? esc(me.role) + ' · ' + esc(me.zoneLabel) : '모든 현장 · 전 층'}</div></div>${me.id && !isOn(me) ? '<span class="duty off">알림 꺼짐</span>' : '<span class="duty">근무 중</span>'}</div>
-      <div class="st-tools"><button type="button" class="chipbtn" data-scope="zone" aria-pressed="${SS.scope === 'zone'}">내 구역</button><button type="button" class="chipbtn" data-scope="all" aria-pressed="${SS.scope === 'all'}">전체</button><button type="button" class="chipbtn${SS.sound ? ' on' : ''}" data-act="sound">${svg('bell')}${SS.sound ? '알림음 켜짐' : '알림음 켜기'}</button>${ctx.full ? installBtn('chipbtn') : ''}</div>`;
+      <div class="st-tools"><button type="button" class="chipbtn" data-scope="zone" aria-pressed="${SS.scope === 'zone'}">내 구역</button><button type="button" class="chipbtn" data-scope="all" aria-pressed="${SS.scope === 'all'}">전체</button><button type="button" class="chipbtn${SS.sound ? ' on' : ''}" data-act="sound">${svg('bell')}${SS.sound ? '알림음 켜짐' : '알림음 켜기'}</button>${ctx.full ? installBtn('chipbtn') : ''}${ctx.full ? '<button type="button" class="chipbtn" data-act="acctMenu">계정</button>' : ''}</div>`;
     GROUPS.sttabs = ST_KEYS;
     const n = { wait: wait.length, mine: mine.length, done: done.length };
     el.querySelector('.st-tabs').innerHTML = ordered(ST_KEYS).map(k => { const tab = k.slice(8); return `<div class="st-tab${hidCls(k)}"><button type="button" role="tab" data-tab="${tab}" aria-selected="${SS.tab === tab}">${esc(L(k))}<span class="n">${n[tab]}</span></button>${pen(k, 'sttabs')}</div>`; }).join('');
@@ -2092,29 +2110,32 @@ async function deleteSite() {
 
 /* ---------- 담당자 ---------- */
 let STAFF_ACL = {};
-const memberEmail = mid => Object.keys(STAFF_ACL).find(k => STAFF_ACL[k] && STAFF_ACL[k].memberId === mid) || '';
+const memberLogins = mid => Object.keys(STAFF_ACL).filter(k => STAFF_ACL[k] && STAFF_ACL[k].memberId === mid);
+const loginLabel = k => loginIdOf(k) ? 'ID ' + loginIdOf(k) : k;
 function drawStaffAdm(main) {
   const noLogin = Object.keys(STAFF_ACL).filter(k => !STAFF_ACL[k] || !STAFF_ACL[k].memberId || !STAFF.some(m => m.id === STAFF_ACL[k].memberId));
-  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">담당자 앱에 들어올 사람과 맡을 구역입니다. 「알림」을 끈 사람은 로그인은 되지만 접수 알림·배정에서 빠집니다. 현장·층을 비워 두면 모든 현장·전 층 알림을 받습니다. 바꾸면 바로 저장됩니다.</p></div></div>
-    <section class="card"><h3>담당자 ${STAFF.length}명 <span class="hint" style="font-weight:500">· 알림 받는 사람 ${STAFF.filter(isOn).length}명</span></h3><div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>알림</th><th>이름</th><th>로그인 Google 계정</th><th>역할</th><th>현장</th><th>층 (비우면 전 층)</th><th>오늘 완료</th><th>지금</th><th></th></tr></thead><tbody>
-    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}" class="${isOn(m) ? '' : 'mem-off'}"><td><label class="sw-mini"><input type="checkbox" data-mf="active" ${isOn(m) ? 'checked' : ''} aria-label="${esc(m.name)} 알림 받기"><span>${isOn(m) ? '켬' : '끔'}</span></label></td><td><b>${esc(m.name)}</b></td><td class="mono">${esc(memberEmail(m.id) || '—')}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td><button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
+  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">담당자 앱에 들어올 사람과 맡을 구역입니다. 로그인은 <b>ID·비밀번호</b>(Google 계정이 없는 직원) 또는 Google 계정 중 편한 쪽으로 등록합니다. 「알림」을 끈 사람은 로그인은 되지만 접수 알림·배정에서 빠집니다. 현장·층을 비워 두면 모든 현장·전 층 알림을 받습니다. 바꾸면 바로 저장됩니다.</p></div></div>
+    <section class="card"><h3>담당자 ${STAFF.length}명 <span class="hint" style="font-weight:500">· 알림 받는 사람 ${STAFF.filter(isOn).length}명</span></h3><div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>알림</th><th>이름</th><th>로그인</th><th>역할</th><th>현장</th><th>층 (비우면 전 층)</th><th>오늘 완료</th><th>지금</th><th></th></tr></thead><tbody>
+    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}" class="${isOn(m) ? '' : 'mem-off'}"><td><label class="sw-mini"><input type="checkbox" data-mf="active" ${isOn(m) ? 'checked' : ''} aria-label="${esc(m.name)} 알림 받기"><span>${isOn(m) ? '켬' : '끔'}</span></label></td><td><b>${esc(m.name)}</b></td><td class="mono">${memberLogins(m.id).map(k => esc(loginLabel(k))).join('<br>') || '—'}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td class="nowrap"><button type="button" class="b" data-act="memPw">${memberLogins(m.id).some(loginIdOf) ? '비번 재발급' : 'ID·비번 만들기'}</button> <button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
     </tbody></table></div>
-    ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정: ${noLogin.map(k => `<span class="mono">${esc(k)}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
+    ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정·ID: ${noLogin.map(k => `<span class="mono">${esc(loginLabel(k))}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
     <section class="card"><h3>담당자 휴대폰에 앱 깔기</h3>
       <p class="hint" style="margin:0 0 10px">큰 QR과 설치 순서가 들어간 <b>A4 한 장</b>을 인쇄해서 담당자에게 나눠 주세요. 모니터의 작은 QR보다 종이로 찍는 게 훨씬 잘 찍힙니다. 아이폰은 사파리로 열어야 합니다.</p>
       <div class="se-foot"><button type="button" class="b primary" data-act="staffQrPrint">담당자 앱 QR 인쇄 (A4)</button><button type="button" class="b" data-act="staffQrSave">그림으로 저장</button><button type="button" class="b" data-act="copyStaffUrl">주소 복사 (카톡으로 보내기)</button></div>
       <p class="hint" style="margin:8px 0 0">앱이 꺼져 있으면 알림이 오지 않습니다. 근무 중에는 켜 두세요.</p></section>
     <div class="set-grid">
-    <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="email" id="maEmail" placeholder="Google 이메일" required aria-label="Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
-      <p class="hint" style="margin:8px 0 0">추가한 사람은 담당자 앱 주소에서 이 Google 계정으로 로그인하면 바로 들어옵니다. 관리자 계정도 여기 넣으면 담당자로 알림을 받습니다.</p></section>
-    <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, 이메일」 — 역할을 붙이려면 「이름, 이메일, 시설」. 이미 등록된 이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, gildong@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
+    <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="text" id="maLogin" placeholder="ID 또는 Google 이메일" required autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="로그인 ID 또는 Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
+      <p class="hint" style="margin:8px 0 0"><b>ID</b>(예: sykim)를 쓰면 비밀번호가 자동으로 만들어지고, 등록 직후 <b>한 번만</b> 보여 줍니다 — 바로 안내장을 인쇄하세요. <b>@가 들어가면 Google 계정</b>으로 등록합니다(관리자 계정도 여기 넣으면 담당자로 알림을 받습니다).</p></section>
+    <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, ID」 또는 「이름, Google 이메일」 — 역할을 붙이려면 「이름, ID, 시설」. ID 줄은 비밀번호를 자동으로 만들어 마지막에 한꺼번에 보여 줍니다. 이미 등록된 ID·이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, hong01&#10;김철수, cskim@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
     </div>`;
 }
+const newMemberId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 async function addMember(name, email, role) {
   name = String(name || '').trim().slice(0, 20); email = String(email || '').trim().toLowerCase();
   if (!name || !/^[^@\s,]+@[^@\s,]+\.[^@\s,]+$/.test(email)) return 'bad';
+  if (loginIdOf(email)) return 'bad';
   if (STAFF_ACL[email] && STAFF_ACL[email].memberId && STAFF.some(m => m.id === STAFF_ACL[email].memberId)) return 'skip';
-  const id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), now = Date.now();
+  const id = newMemberId(), now = Date.now();
   const batch = DB.batch();
   batch.set(DB.doc('members/' + id), { id, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
   batch.set(DB.doc('staff/' + email), { memberId: id, name, at: now, by: AUTH.email });
@@ -2122,33 +2143,171 @@ async function addMember(name, email, role) {
   STAFF_ACL[email] = { memberId: id, name };
   return 'ok';
 }
+// ---- ID/비밀번호 로그인 계정 (Firebase 이메일/비밀번호 + 가짜 주소). 비밀번호는 어디에도 저장하지 않는다. ----
+const PW_ERR = { 'auth/email-already-in-use': '이미 쓴 ID입니다 (지운 사람의 ID도 다시 쓸 수 없습니다). 다른 ID로 하세요', 'auth/operation-not-allowed': 'Firebase에서 「이메일/비밀번호」 로그인이 아직 켜져 있지 않습니다', 'auth/weak-password': '비밀번호가 너무 짧습니다 (8자 이상)', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '잠시 뒤에 다시 해 주세요' };
+const pwErr = e => PW_ERR[errCode(e)] || ('실패 (' + errCode(e) + ')');
+// 관리자 본인의 로그인이 바뀌지 않도록, 별도 Firebase 앱 인스턴스로 계정을 만든다
+async function createLogin(id, pw) {
+  let app; try { app = firebase.app('pw'); } catch (e) { app = firebase.initializeApp(FIREBASE_CONFIG, 'pw'); }
+  const a = app.auth();
+  try { await a.createUserWithEmailAndPassword(loginEmail(id), pw); }
+  finally { try { await a.signOut(); } catch (e) { /* 무시 */ } }
+}
+async function addPwMember(name, id, role, pw) {
+  name = String(name || '').trim().slice(0, 20); id = String(id || '').trim().toLowerCase();
+  if (!name || !validLoginId(id)) return { r: 'bad' };
+  const em = loginEmail(id);
+  if (STAFF_ACL[em]) return { r: 'skip' };
+  pw = pw || genPw();
+  try { await createLogin(id, pw); } catch (e) { return { r: 'err', msg: pwErr(e), code: errCode(e) }; }
+  const mid = newMemberId(), now = Date.now();
+  try {
+    const batch = DB.batch();
+    batch.set(DB.doc('members/' + mid), { id: mid, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
+    batch.set(DB.doc('staff/' + em), { memberId: mid, name, kind: 'pw', at: now, by: AUTH.email });
+    await batch.commit();
+  } catch (e) { return { r: 'err', msg: '계정은 만들어졌지만 담당자로 저장하지 못했습니다 (' + errCode(e) + '). 같은 ID는 다시 못 쓰니 다른 ID로 하세요', code: errCode(e) }; }
+  STAFF_ACL[em] = { memberId: mid, name, kind: 'pw' };
+  return { r: 'ok', cred: { name, id, pw } };
+}
+// 기존 담당자에게 ID/비밀번호 로그인을 만들어 주거나(새로), 분실했을 때 새 ID·비밀번호로 다시 발급한다 (예전 ID 는 막힌다)
+async function setMemberLogin(m, id, pw) {
+  const em = loginEmail(id);
+  await createLogin(id, pw);
+  const batch = DB.batch();
+  memberLogins(m.id).filter(loginIdOf).forEach(k => batch.delete(DB.doc('staff/' + k)));
+  batch.set(DB.doc('staff/' + em), { memberId: m.id, name: m.name, kind: 'pw', at: Date.now(), by: AUTH.email });
+  await batch.commit();
+  memberLogins(m.id).filter(loginIdOf).forEach(k => { delete STAFF_ACL[k]; });
+  STAFF_ACL[em] = { memberId: m.id, name: m.name, kind: 'pw' };
+}
 async function addMemberForm() {
-  const r = await addMember($('#maName').value, $('#maEmail').value, $('#maRole').value).catch(e => 'err:' + errCode(e));
-  if (r === 'ok') { toast('담당자를 추가했습니다'); $('#maName').value = ''; $('#maEmail').value = ''; }
-  else toast(r === 'skip' ? '이미 등록된 이메일입니다' : r === 'bad' ? '이름과 이메일을 확인해 주세요' : '추가하지 못했습니다 (' + r.slice(4) + ')');
+  const name = $('#maName').value, who = String($('#maLogin').value || '').trim().toLowerCase(), role = $('#maRole').value;
+  if (who.includes('@')) {
+    const r = await addMember(name, who, role).catch(e => 'err:' + errCode(e));
+    if (r === 'ok') { toast('담당자를 추가했습니다'); $('#maName').value = ''; $('#maLogin').value = ''; }
+    else toast(r === 'skip' ? '이미 등록된 이메일입니다' : r === 'bad' ? '이름과 이메일을 확인해 주세요' : '추가하지 못했습니다 (' + r.slice(4) + ')');
+    return;
+  }
+  if (!String(name).trim() || !validLoginId(who)) { toast('이름과 ID를 확인해 주세요 — ID는 영문 소문자·숫자·-·_ 로 3~24자'); return; }
+  toast('계정을 만드는 중…');
+  const r = await addPwMember(name, who, role);
+  if (r.r === 'ok') { $('#maName').value = ''; $('#maLogin').value = ''; showCreds([r.cred]); }
+  else toast(r.r === 'skip' ? '이미 등록된 ID입니다' : r.r === 'bad' ? '이름과 ID를 확인해 주세요' : r.msg);
 }
 async function addMembersBulk() {
   const lines = (AS.bulk != null ? AS.bulk : ($('#memBulk').value || '')).split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   if (!lines.length) { toast('붙여 넣은 줄이 없습니다'); return; }
-  const cnt = { ok: 0, skip: 0, bad: 0, err: 0 };
+  const cnt = { ok: 0, skip: 0, bad: 0, err: 0 }, creds = []; let firstErr = '';
   toast('등록하는 중…');
   for (const ln of lines) {
-    const [name, email, role] = ln.split(/\s*[,\t]\s*/);
-    const r = await addMember(name, email, (role || '').trim()).catch(() => 'err');
-    cnt[r.startsWith('err') ? 'err' : r]++;
+    const [name, who, role] = ln.split(/\s*[,\t]\s*/);
+    const w = String(who || '').trim().toLowerCase();
+    let r;
+    if (w.includes('@')) r = await addMember(name, w, (role || '').trim()).catch(() => 'err');
+    else {
+      const x = await addPwMember(name, w, (role || '').trim());
+      r = x.r; if (x.cred) creds.push(x.cred); if (x.r === 'err' && !firstErr) firstErr = x.msg;
+      if (x.r === 'err' && x.code === 'auth/operation-not-allowed') { cnt.err++; break; }
+    }
+    cnt[String(r).startsWith('err') ? 'err' : r]++;
   }
-  toast(`등록 ${cnt.ok}명${cnt.skip ? ' · 이미 있음 ' + cnt.skip : ''}${cnt.bad ? ' · 형식 오류 ' + cnt.bad : ''}${cnt.err ? ' · 실패 ' + cnt.err : ''}`);
+  toast(`등록 ${cnt.ok}명${cnt.skip ? ' · 이미 있음 ' + cnt.skip : ''}${cnt.bad ? ' · 형식 오류 ' + cnt.bad : ''}${cnt.err ? ' · 실패 ' + cnt.err : ''}${firstErr ? ' — ' + firstErr : ''}`);
   if (!cnt.bad && !cnt.err) { AS.bulk = ''; const t = $('#memBulk'); if (t) t.value = ''; }
+  if (creds.length) showCreds(creds);
 }
 async function updateMember(mid, patch) {
   try { await DB.doc('members/' + mid).update(patch); } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
 }
 async function deleteMember(mid) {
   const m = STAFF.find(x => x.id === mid); if (!m) return;
-  const em = memberEmail(mid);
-  if (!await askConfirm(`${m.name} 님을 담당자에서 뺄까요?${em ? ' ' + em + ' 계정의 담당자 앱 로그인도 막힙니다.' : ''}`, '빼기')) return;
-  try { const batch = DB.batch(); batch.delete(DB.doc('members/' + mid)); if (em) batch.delete(DB.doc('staff/' + em)); await batch.commit(); toast('뺐습니다'); }
+  const lg = memberLogins(mid);
+  if (!await askConfirm(`${m.name} 님을 담당자에서 뺄까요?${lg.length ? ' ' + lg.map(loginLabel).join(', ') + ' 로그인도 막힙니다.' : ''}${lg.some(loginIdOf) ? ' (같은 ID는 다시 쓸 수 없습니다)' : ''}`, '빼기')) return;
+  try { const batch = DB.batch(); batch.delete(DB.doc('members/' + mid)); lg.forEach(k => batch.delete(DB.doc('staff/' + k))); await batch.commit(); toast('뺐습니다'); }
   catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); }
+}
+
+/* ---------- ID·비밀번호 창 ---------- */
+let CREDS = [], CREDS_SAVED = false;
+const modalShell = (id, title, body, foot) => `<div class="overlay"><div class="modal pw-modal" role="dialog" aria-modal="true" aria-labelledby="${id}" data-sp-popup><header><b id="${id}">${esc(title)}</b><button type="button" class="x" data-act="mClose" aria-label="닫기">✕</button></header><div class="modal-body" style="display:block">${body}</div><footer>${foot}</footer></div></div>`;
+function setModal(html) { const root = $('#modalRoot'); root.innerHTML = html; const ov = root.querySelector('.overlay'); if (ov) ov.onclick = onModalClick; const f = root.querySelector('input'); if (f) f.focus(); }
+async function closeModal(force) {
+  if (!force && CREDS.length && !CREDS_SAVED && !await askConfirm('비밀번호는 다시 볼 수 없습니다. 인쇄하거나 복사하지 않고 닫을까요?', '그냥 닫기')) return;
+  CREDS = []; CREDS_SAVED = false; $('#modalRoot').innerHTML = '';
+}
+function showCreds(list) {
+  CREDS = list.slice(); CREDS_SAVED = false;
+  setModal(modalShell('crT', '로그인 정보 — 지금 한 번만 보입니다',
+    `<div class="tbl-wrap"><table class="tbl cred"><thead><tr><th>이름</th><th>ID</th><th>비밀번호</th></tr></thead><tbody>${list.map(c => `<tr><td>${esc(c.name)}</td><td class="mono">${esc(c.id)}</td><td class="mono"><b>${esc(c.pw)}</b></td></tr>`).join('')}</tbody></table></div>
+     <p class="hint" style="margin:10px 0 0">비밀번호는 서버에 저장되지 않아 이 창을 닫으면 다시 볼 수 없습니다. 「안내장 인쇄」로 사람마다 A4 한 장(ID·비밀번호·설치 QR)을 뽑아 나눠 주세요. 직원은 로그인한 뒤 「계정 › 비밀번호 바꾸기」로 직접 바꿀 수 있습니다.</p>`,
+    `<button type="button" class="b" data-act="credCopy">복사</button><span class="grow"></span><button type="button" class="b" data-act="mClose">닫기</button><button type="button" class="b primary" data-act="credPrint">안내장 인쇄 (A4)</button>`));
+}
+function openPwModal(mid) {
+  const m = STAFF.find(x => x.id === mid); if (!m) return;
+  const lg = memberLogins(mid), oldId = loginIdOf(lg.find(loginIdOf) || ''), gm = lg.find(k => !loginIdOf(k)) || '';
+  let sug = '';
+  if (oldId) { const x = oldId.match(/^(.*?)(\d*)$/); sug = x[1] + (x[2] ? String(+x[2] + 1).padStart(x[2].length, '0') : 2); }
+  else if (gm) sug = gm.split('@')[0].replace(/[^a-z0-9_-]/g, '');
+  if (!validLoginId(sug)) sug = '';
+  setModal(modalShell('pwT', oldId ? m.name + ' — 비밀번호 재발급' : m.name + ' — ID·비밀번호 만들기',
+    `<p class="hint" style="margin:0 0 10px">${oldId ? `비밀번호를 잊었을 때 쓰는 기능입니다. <b>새 ID와 비밀번호</b>를 만들고, 예전 ID(<span class="mono">${esc(oldId)}</span>)로는 더 이상 로그인할 수 없게 됩니다. 접수 기록·구역은 그대로입니다.` : `Google 계정이 없는 직원이 ID와 비밀번호로 담당자 앱에 들어오게 합니다.${gm ? ' 기존 Google 로그인(' + esc(gm) + ')도 그대로 쓸 수 있습니다.' : ''}`}</p>
+     <label class="fld"><span class="lab">ID (영문 소문자·숫자·-·_ 3~24자)</span><input type="text" id="pwId" value="${esc(sug)}" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="24"></label>
+     <label class="fld" style="margin-top:10px"><span class="lab">비밀번호 (8자 이상 — 자동으로 만들었습니다)</span><span class="pw-row"><input type="text" id="pwPw" value="${genPw()}" autocomplete="off" spellcheck="false" maxlength="40"><button type="button" class="b" data-act="pwGen">다시 만들기</button></span></label>
+     <p class="gate-bad" id="pwErr" hidden></p>
+     <p class="hint" style="margin:10px 0 0">비밀번호는 서버에 저장되지 않습니다. 만든 뒤 나오는 창에서 안내장을 인쇄하세요.</p>`,
+    `<span class="grow"></span><button type="button" class="b" data-act="mClose">취소</button><button type="button" class="b primary" data-act="pwMake" data-mid="${esc(mid)}">${oldId ? '재발급' : '만들기'}</button>`));
+}
+function openAcct(view) {
+  const u = AUTHX.currentUser; if (!u || u.isAnonymous) return;
+  const pw = isPwUser(u), who = pw ? 'ID ' + loginIdOf(u.email) : (u.email || '');
+  if (view === 'pw') {
+    setModal(modalShell('acT', '비밀번호 바꾸기',
+      `<label class="fld"><span class="lab">지금 비밀번호</span><input type="password" id="pcCur" autocomplete="current-password"></label>
+       <label class="fld" style="margin-top:10px"><span class="lab">새 비밀번호 (8자 이상)</span><input type="password" id="pcNew" autocomplete="new-password"></label>
+       <label class="fld" style="margin-top:10px"><span class="lab">새 비밀번호 한 번 더</span><input type="password" id="pcNew2" autocomplete="new-password"></label>
+       <p class="gate-bad" id="pcErr" hidden></p>`,
+      `<span class="grow"></span><button type="button" class="b" data-act="mClose">취소</button><button type="button" class="b primary" data-act="pcSave">바꾸기</button>`));
+    return;
+  }
+  setModal(modalShell('acT', '내 계정',
+    `<p style="margin:0 0 6px"><b class="mono">${esc(who)}</b></p><p class="hint" style="margin:0">${pw ? '비밀번호를 잊었다면 관리자에게 「비번 재발급」을 요청하세요.' : 'Google 계정으로 로그인했습니다.'}</p>`,
+    `${pw ? '<button type="button" class="b" data-act="pcOpen">비밀번호 바꾸기</button>' : ''}<span class="grow"></span><button type="button" class="b danger" data-act="logout">로그아웃</button><button type="button" class="b" data-act="mClose">닫기</button>`));
+}
+async function onModalClick(e) {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act;
+  if (a === 'mClose') closeModal();
+  else if (a === 'logout') { closeModal(true); }
+  else if (a === 'pwGen') { const i = $('#pwPw'); if (i) i.value = genPw(); }
+  else if (a === 'credCopy') { const t = CREDS.map(c => `${c.name}\nID: ${c.id}\n비밀번호: ${c.pw}`).join('\n\n') + '\n\n담당자 앱: ' + STAFF_URL; const ok = await copyText(t); if (ok) CREDS_SAVED = true; toast(ok ? '복사했습니다. 비밀번호가 들어 있으니 한 사람에게만 보내세요.' : '복사하지 못했습니다'); }
+  else if (a === 'credPrint') { CREDS_SAVED = true; printStaffGuide(CREDS); }
+  else if (a === 'pwMake') {
+    const m = STAFF.find(x => x.id === b.dataset.mid); if (!m) return;
+    const id = String($('#pwId').value || '').trim().toLowerCase(), pw = String($('#pwPw').value || ''), er = $('#pwErr');
+    const bad = !validLoginId(id) ? 'ID는 영문 소문자·숫자·-·_ 로 3~24자(첫 글자는 영문·숫자)입니다' : pw.length < 8 ? '비밀번호는 8자 이상입니다' : STAFF_ACL[loginEmail(id)] ? '이미 등록된 ID입니다' : '';
+    er.textContent = bad; er.hidden = !bad; if (bad) return;
+    b.disabled = true; b.textContent = '만드는 중…';
+    try { await setMemberLogin(m, id, pw); }
+    catch (err) { er.textContent = pwErr(err); er.hidden = false; b.disabled = false; b.textContent = '다시 시도'; return; }
+    showCreds([{ name: m.name, id, pw }]);
+  }
+  else if (a === 'pcOpen') openAcct('pw');
+  else if (a === 'pcSave') {
+    const cur = $('#pcCur').value, n1 = $('#pcNew').value, n2 = $('#pcNew2').value, er = $('#pcErr');
+    const bad = !cur ? '지금 비밀번호를 넣어 주세요' : n1.length < 8 ? '새 비밀번호는 8자 이상입니다' : n1 !== n2 ? '새 비밀번호가 서로 다릅니다' : n1 === cur ? '지금 비밀번호와 다르게 정해 주세요' : '';
+    er.textContent = bad; er.hidden = !bad; if (bad) return;
+    b.disabled = true;
+    try {
+      const u = AUTHX.currentUser;
+      await u.reauthenticateWithCredential(firebase.auth.EmailAuthProvider.credential(u.email, cur));
+      await u.updatePassword(n1);
+      closeModal(true); toast('비밀번호를 바꿨습니다. 다음 로그인부터 새 비밀번호를 쓰세요.');
+    } catch (err) {
+      const c = errCode(err);
+      er.textContent = (c === 'auth/wrong-password' || c === 'auth/invalid-credential') ? '지금 비밀번호가 맞지 않습니다' : c === 'auth/weak-password' ? '새 비밀번호가 너무 쉽습니다' : c === 'auth/too-many-requests' ? '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요' : '바꾸지 못했습니다 (' + c + ')';
+      er.hidden = false; b.disabled = false;
+    }
+  }
 }
 
 /* ---------- 설정 ---------- */
@@ -2252,45 +2411,52 @@ async function printSite(sid) {
   window.addEventListener('afterprint', clear);
   window.print();
 }
-// 담당자 앱 설치 안내 — A4 한 장 (큰 QR + 설치 순서)
-function drawStaffGuide(g) {
-  const W = 2480, H = 3508, F = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif', M = '"IBM Plex Mono", monospace';
-  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H);
+// 담당자 앱 설치 안내 — A4 한 장 (큰 QR + 설치 순서). cred 가 있으면 그 사람의 ID·비밀번호가 함께 들어간다.
+function drawStaffGuide(g, cred) {
+  const W = 2480, F = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif', M = '"IBM Plex Mono", monospace';
+  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, 3508);
   g.fillStyle = '#111A26'; g.fillRect(0, 0, W, 360);
   g.fillStyle = '#F2B01E'; g.fillRect(200, 60, 240, 240);
   g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#15110A'; g.font = '800 104px ' + F; g.fillText('담당', 320, 184);
   g.textAlign = 'left'; g.fillStyle = '#F1F2EC'; g.font = '800 150px ' + F; g.fillText('담당자 앱 설치', 500, 150);
-  g.fillStyle = '#93A0B0'; g.font = '500 60px ' + F; g.fillText('화장실 불편접수 · 현장 담당자용', 504, 266);
-  const q = qrCanvas(STAFF_URL, 1100), qx = (W - 1100) / 2, qy = 470;
-  g.strokeStyle = '#C9CFC6'; g.lineWidth = 6; g.strokeRect(qx - 50, qy - 50, 1200, 1200);
-  if (q) { g.imageSmoothingEnabled = false; g.drawImage(q, qx, qy, 1100, 1100); }
-  g.textAlign = 'center'; g.fillStyle = '#18222F'; g.font = '800 96px ' + F; g.fillText('휴대폰 카메라로 찍어 주세요', W / 2, 1760);
+  g.fillStyle = '#93A0B0'; fitFont(g, cred ? cred.name + ' 님 · 화장실 불편접수' : '화장실 불편접수 · 현장 담당자용', 500, 60, F, 1700); g.fillText(cred ? cred.name + ' 님 · 화장실 불편접수' : '화장실 불편접수 · 현장 담당자용', 504, 266);
+  const qs = cred ? 940 : 1100, qy = cred ? 450 : 470, q = qrCanvas(STAFF_URL, qs), qx = (W - qs) / 2;
+  g.strokeStyle = '#C9CFC6'; g.lineWidth = 6; g.strokeRect(qx - 50, qy - 50, qs + 100, qs + 100);
+  if (q) { g.imageSmoothingEnabled = false; g.drawImage(q, qx, qy, qs, qs); }
+  g.textAlign = 'center'; g.fillStyle = '#18222F'; g.font = '800 ' + (cred ? 80 : 96) + 'px ' + F; g.fillText('휴대폰 카메라로 찍어 주세요', W / 2, cred ? 1540 : 1760);
+  if (cred) {
+    g.fillStyle = '#FFF6DB'; g.fillRect(200, 1640, 2080, 440); g.strokeStyle = '#F2B01E'; g.lineWidth = 8; g.strokeRect(200, 1640, 2080, 440);
+    g.textAlign = 'left'; g.fillStyle = '#5C6674'; g.font = '600 60px ' + F; g.fillText('ID', 280, 1750); g.fillText('비밀번호', 280, 1950);
+    g.fillStyle = '#111A26'; fitFont(g, cred.id, 700, 140, M, 1400); g.fillText(cred.id, 780, 1750); fitFont(g, cred.pw, 700, 140, M, 1400); g.fillText(cred.pw, 780, 1950);
+    g.textAlign = 'center'; g.fillStyle = '#B42318'; g.font = '600 46px ' + F; g.fillText('비밀번호는 다른 사람에게 알려 주지 마세요 · 설치와 로그인이 끝나면 이 종이는 파기하세요', W / 2, 2140);
+  }
   const steps = [
     ['휴대폰 카메라로 위 QR을 찍어 엽니다', '아이폰은 ‘사파리’로 열어 주세요'],
-    ['안내받은 계정으로 로그인합니다', '관리자가 등록한 사람만 들어올 수 있습니다'],
+    cred ? ['위의 ID와 비밀번호로 로그인합니다', '로그인한 뒤 「계정 › 비밀번호 바꾸기」로 내 비밀번호로 바꾸세요'] : ['안내받은 계정으로 로그인합니다', '관리자가 등록한 사람만 들어올 수 있습니다'],
     ['안드로이드: 위쪽 「앱으로 설치」 → 「설치」', '아이폰: 공유 버튼 → 「홈 화면에 추가」'],
     ['홈 화면의 노란 「담당」 아이콘으로 열고', '「알림음 켜기」를 누릅니다']
   ];
-  let y = 1990;
+  let y = cred ? 2270 : 1990; const pitch = cred ? 250 : 300;
   steps.forEach((st, i) => {
     g.fillStyle = '#F2B01E'; g.beginPath(); g.arc(300, y + 70, 64, 0, Math.PI * 2); g.fill();
     g.fillStyle = '#15110A'; g.textAlign = 'center'; g.font = '800 76px ' + F; g.fillText(String(i + 1), 300, y + 74);
     g.textAlign = 'left'; g.fillStyle = '#18222F'; fitFont(g, st[0], 700, 64, F, 1700); g.fillText(st[0], 420, y + 38);
     g.fillStyle = '#3F4A58'; fitFont(g, st[1], 500, 54, F, 1700); g.fillText(st[1], 420, y + 116);
-    y += 300;
+    y += pitch;
   });
   g.textAlign = 'center'; g.fillStyle = '#5C6674'; g.font = '500 48px ' + F; g.fillText('근무 중에는 앱을 켜 두세요 — 앱이 꺼져 있으면 알림이 오지 않습니다', W / 2, 3300);
   g.fillStyle = '#9AA3AE'; fitFont(g, STAFF_URL, 400, 44, M, 2000); g.fillText(STAFF_URL, W / 2, 3400);
 }
-function staffGuideCanvas() { const c = document.createElement('canvas'); c.width = 2480; c.height = 3508; drawStaffGuide(c.getContext('2d')); return c; }
-async function printStaffGuide() {
+function staffGuideCanvas(cred) { const c = document.createElement('canvas'); c.width = 2480; c.height = 3508; drawStaffGuide(c.getContext('2d'), cred); return c; }
+// creds 가 있으면 사람마다 한 장씩, 없으면 공용 안내 한 장
+async function printStaffGuide(creds) {
   if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
   toast('인쇄 화면을 준비합니다…');
   await fontsReady();
-  const src = staffGuideCanvas().toDataURL('image/png');
+  const srcs = (creds && creds.length ? creds : [null]).map(c => staffGuideCanvas(c).toDataURL('image/png'));
   let box = $('#printArea');
   if (!box) { box = document.createElement('div'); box.id = 'printArea'; document.body.appendChild(box); }
-  box.innerHTML = `<section class="pp one"><img src="${src}" alt="담당자 앱 설치 안내"></section>`;
+  box.innerHTML = srcs.map(src => `<section class="pp one"><img src="${src}" alt="담당자 앱 설치 안내"></section>`).join('');
   await Promise.all(Array.from(box.querySelectorAll('img')).map(im => (im.decode ? im.decode().catch(() => {}) : null)));
   const clear = () => { window.removeEventListener('afterprint', clear); setTimeout(() => { box.innerHTML = ''; }, 500); };
   window.addEventListener('afterprint', clear);
@@ -2352,8 +2518,9 @@ async function admClick(e) {
   else if (act === 'rowAdd' && AS.edit) { const last = AS.edit.rows[AS.edit.rows.length - 1]; AS.edit.rows.push({ floor: last ? (last.floor || '') : '1F', type: last && last.type === 'M' ? 'W' : 'M', stalls: 1, urinals: last && last.type === 'M' ? 0 : 1 }); drawAdmMain(); }
   else if (act === 'rowDel' && AS.edit) { AS.edit.rows.splice(+b.dataset.row, 1); drawAdmMain(); }
   else if (act === 'memBulk') addMembersBulk();
+  else if (act === 'memPw') { const tr = b.closest('[data-mid]'); if (tr) openPwModal(tr.dataset.mid); }
   else if (act === 'memDel') { const tr = b.closest('[data-mid]'); if (tr) deleteMember(tr.dataset.mid); }
-  else if (act === 'aclDel') { const em = b.dataset.email; if (await askConfirm(em + ' 계정의 담당자 로그인을 막을까요?', '빼기')) { try { await DB.doc('staff/' + em).delete(); } catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); } } }
+  else if (act === 'aclDel') { const em = b.dataset.email; if (await askConfirm(loginLabel(em) + ' 의 담당자 로그인을 막을까요?', '빼기')) { try { await DB.doc('staff/' + em).delete(); } catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); } } }
   else if (act === 'demoClear') demoClear();
   else if (act === 'delIssue') {
     const code = b.dataset.code;
@@ -2709,19 +2876,36 @@ function resetKeys(pred) { ['labels', 'hidden', 'order', 'help'].forEach(p => { 
 
 /* ================= 로그인 · 권한 ================= */
 function gateHTML(kind) {
-  const u = AUTH.user, google = u && !u.isAnonymous;
+  const u = AUTH.user, google = u && !u.isAnonymous, pw = isPwUser(u);
   if (!AUTH.ready) return '<div class="gate"><p class="loading">확인하는 중…</p></div>';
-  const title = kind === 'admin' ? '관리자 로그인' : '담당자 로그인';
-  const denied = google ? `<p class="gate-bad">${esc(u.email || '')} 계정은 ${kind === 'admin' ? '관리자' : '담당자'}로 등록돼 있지 않습니다.${kind === 'staff' ? ' 관리자에게 이 이메일을 알려 주세요.' : ''}</p>` : '';
-  return `<div class="gate"><div class="card gate-card"><div class="brand"><span class="logo">SPACE</span><div style="text-align:left"><b>화장실 불편접수</b><small>판 ${BUILD}</small></div></div><h2>${title}</h2><p class="hint" style="margin:0">등록된 Google 계정으로 로그인합니다.</p>${denied}<button type="button" class="b primary gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
+  const title = kind === 'admin' ? '관리자 로그인' : '담당자 로그인', who = kind === 'admin' ? '관리자' : '담당자';
+  const denied = google ? (pw ? `<p class="gate-bad">ID ${esc(loginIdOf(u.email))} 는 ${who}로 등록돼 있지 않습니다. 관리자에게 알려 주세요.</p>` : `<p class="gate-bad">${esc(u.email || '')} 계정은 ${who}로 등록돼 있지 않습니다.${kind === 'staff' ? ' 관리자에게 이 이메일을 알려 주세요.' : ''}</p>`) : '';
+  const head = `<div class="brand"><span class="logo">SPACE</span><div style="text-align:left"><b>화장실 불편접수</b><small>판 ${BUILD}</small></div></div><h2>${title}</h2>`;
+  if (kind === 'staff') return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">관리자에게 받은 ID와 비밀번호로 로그인합니다.</p>${denied}
+    <form id="pwLogin" class="gate-form"><label class="fld"><span class="lab">ID</span><input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="24"></label><label class="fld"><span class="lab">비밀번호</span><input type="password" id="lgPw" name="password" autocomplete="current-password" maxlength="40"></label><p class="gate-bad" id="lgErr" hidden></p><button type="submit" class="b primary gate-btn">로그인</button></form>
+    <div class="gate-or"><span>Google 계정이 있다면</span></div><button type="button" class="b gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
+  return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">등록된 Google 계정으로 로그인합니다.</p>${denied}<button type="button" class="b primary gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
 }
+const LOGIN_ERR = { 'auth/invalid-credential': 'ID 또는 비밀번호가 맞지 않습니다', 'auth/wrong-password': 'ID 또는 비밀번호가 맞지 않습니다', 'auth/user-not-found': 'ID 또는 비밀번호가 맞지 않습니다', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/operation-not-allowed': 'ID/비밀번호 로그인이 아직 켜지지 않았습니다. 관리자에게 알려 주세요', 'auth/user-disabled': '사용이 중지된 계정입니다. 관리자에게 알려 주세요' };
+document.addEventListener('submit', async e => {
+  if (!e.target || e.target.id !== 'pwLogin') return;
+  e.preventDefault();
+  const id = e.target.querySelector('#lgId').value.trim().toLowerCase(), pw = e.target.querySelector('#lgPw').value;
+  const er = e.target.querySelector('#lgErr'), btn = e.target.querySelector('button[type="submit"]');
+  const show = m => { er.textContent = m; er.hidden = !m; };
+  if (!id || !pw) { show('ID와 비밀번호를 넣어 주세요'); return; }
+  if (!validLoginId(id)) { show('ID 또는 비밀번호가 맞지 않습니다'); return; }
+  show(''); btn.disabled = true;
+  try { await AUTHX.signInWithEmailAndPassword(loginEmail(id), pw); }
+  catch (err) { show(LOGIN_ERR[errCode(err)] || ('로그인하지 못했습니다 (' + errCode(err) + ')')); btn.disabled = false; }
+});
 function applyRoleUI() {
   const admin = AUTH.role === 'admin';
   const sw = $('#editToggle').closest('label'); if (sw) sw.hidden = !admin;
   if (!admin && S.editing) setEditing(false);
   $('#fab').hidden = !(S.full && admin);
   const a = $('#acct'), u = AUTH.user;
-  if (a) a.innerHTML = u && !u.isAnonymous ? `${admin ? installBtn('b accent') : ''}<span title="${esc(u.email || '')}">${esc(u.email || '')}</span><button type="button" class="b" data-act="logout">로그아웃</button>` : '';
+  if (a) a.innerHTML = u && !u.isAnonymous ? `${admin ? installBtn('b accent') : ''}<span title="${esc(isPwUser(u) ? loginIdOf(u.email) : (u.email || ''))}">${esc(isPwUser(u) ? 'ID ' + loginIdOf(u.email) : (u.email || ''))}</span>${isPwUser(u) ? '<button type="button" class="b" data-act="acctMenu">계정</button>' : ''}<button type="button" class="b" data-act="logout">로그아웃</button>` : '';
 }
 async function doLogin() {
   const p = new firebase.auth.GoogleAuthProvider();
@@ -2760,11 +2944,12 @@ async function copyText(t) {
   try { const i = document.createElement('textarea'); i.value = t; i.style.position = 'fixed'; i.style.opacity = '0'; document.body.appendChild(i); i.select(); const ok = document.execCommand('copy'); i.remove(); return ok; } catch (e) { return false; }
 }
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-act="login"],[data-act="logout"],[data-act="install"],[data-act="copyStaffUrl"]'); if (!b) return;
+  const b = e.target.closest('[data-act="login"],[data-act="logout"],[data-act="install"],[data-act="copyStaffUrl"],[data-act="acctMenu"]'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
   const a = b.dataset.act;
   if (a === 'login') doLogin();
-  else if (a === 'logout') doLogout();
+  else if (a === 'logout') { if ($('#modalRoot')) $('#modalRoot').innerHTML = ''; doLogout(); }
+  else if (a === 'acctMenu') openAcct();
   else if (a === 'install') doInstall();
   else copyText(STAFF_URL).then(ok => toast(ok ? '담당자 앱 주소를 복사했습니다. 카톡 등에 붙여 보내세요.' : '복사하지 못했습니다. 주소: ' + STAFF_URL));
 }, true);
@@ -2872,9 +3057,9 @@ AUTHX.onAuthStateChanged(async u => {
   let role = 'none', memberId = '';
   if (u) {
     if (u.isAnonymous) role = 'customer';
-    else if (!u.emailVerified) role = 'denied';
+    else if (!u.emailVerified && !isPwUser(u)) role = 'denied';
     else {
-      try { await DB.collection('notes').limit(1).get(); role = 'admin'; } catch (e) { role = ''; }
+      if (!isPwUser(u)) { try { await DB.collection('notes').limit(1).get(); role = 'admin'; } catch (e) { role = ''; } } else role = '';
       try { const d = await DB.doc('staff/' + AUTH.email).get(); if (d.exists) { memberId = (d.data() || {}).memberId || ''; if (!role) role = 'staff'; } } catch (e2) { /* 무시 */ }
       if (!role) role = 'denied';
     }
