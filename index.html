@@ -622,6 +622,10 @@ body.fullmode main{padding:0}
 .inst-steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:13.5px;line-height:1.5}
 .ios-guide{max-width:380px}
 .inst-btn{white-space:nowrap}
+.sw-mini{display:inline-flex;gap:4px;align-items:center;font-size:12px;white-space:nowrap}
+tr.mem-off td{color:var(--faint)}
+tr.mem-off b{color:var(--muted)}
+.duty.off{color:var(--faint)}
 </style>
 </head>
 <body>
@@ -1033,7 +1037,7 @@ body.fullmode main{padding:0}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1010';
+const BUILD = '20261012-1030';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1203,6 +1207,7 @@ function setMembers(list) {
     STAFF.push(Object.assign({ role: '청소', sites: [], floors: [] }, m, { zoneLabel: zoneLabelOf(Object.assign({ sites: [], floors: [] }, m)) }));
   });
 }
+const isOn = m => m.active !== false;
 const covers = (m, room) => !!room && (!(m.sites || []).length || m.sites.includes(room.site)) && (!(m.floors || []).length || m.floors.includes(room.floor));
 const ISSUE_BASE = [
   { code: 'paper', icon: 'paper', sla: 10, cat: 'clean', stall: true },
@@ -1263,8 +1268,8 @@ const catOf = t => t.toFac ? 'fac' : (t.emergency ? 'clean' : issueDef(t.issue).
 function zoneStaff(room, cat) {
   if (!room) return NOBODY;
   const want = cat === 'fac' ? '시설' : '청소';
-  let c = STAFF.filter(m => m.role === want && covers(m, room));
-  if (!c.length) c = STAFF.filter(m => covers(m, room));
+  let c = STAFF.filter(m => isOn(m) && m.role === want && covers(m, room));
+  if (!c.length) c = STAFF.filter(m => isOn(m) && covers(m, room));
   return c.length === 1 ? c[0] : NOBODY;
 }
 const isOpen = t => t.status === 'new' || t.status === 'going';
@@ -1660,7 +1665,7 @@ function inScope(t, me) {
   const other = fac ? '시설' : '청소';
   if ((me.role === '시설') === fac) return true;
   // 맡을 사람이 따로 없으면 내 구역 안의 건은 나에게도 보인다
-  return !STAFF.some(m => m.role === other && covers(m, room));
+  return !STAFF.some(m => isOn(m) && m.role === other && covers(m, room));
 }
 function staffLists() {
   const me = sById(SS.staffId), now = Date.now();
@@ -1677,7 +1682,7 @@ function mountStaff(el, ctx) {
     if (SS.el !== el) return;
     const { me, wait, mine, done } = staffLists();
     el.querySelector('.st-head').innerHTML = `${ctx.full ? '' : `<div class="sbar" style="padding-inline:12px"><span>${hm(Date.now())}</span><span>5G</span></div>`}
-      <div class="st-who"><div class="st-avatar">${esc((me.name || '?')[0])}</div><div>${AUTH.role === 'admin' ? `<select data-in="staff" aria-label="누구로 볼지 고르기"><option value="" ${me.id ? '' : 'selected'}>관리자 (전체 보기)</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === me.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : `<b class="st-name">${esc(me.id ? me.name : (AUTH.email || '담당자'))}</b>`}<div class="st-zone">${me.id ? esc(me.role) + ' · ' + esc(me.zoneLabel) : '모든 현장 · 전 층'}</div></div><span class="duty">근무 중</span></div>
+      <div class="st-who"><div class="st-avatar">${esc((me.name || '?')[0])}</div><div>${AUTH.role === 'admin' ? `<select data-in="staff" aria-label="누구로 볼지 고르기"><option value="" ${me.id ? '' : 'selected'}>관리자 (전체 보기)</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === me.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : `<b class="st-name">${esc(me.id ? me.name : (AUTH.email || '담당자'))}</b>`}<div class="st-zone">${me.id ? esc(me.role) + ' · ' + esc(me.zoneLabel) : '모든 현장 · 전 층'}</div></div>${me.id && !isOn(me) ? '<span class="duty off">알림 꺼짐</span>' : '<span class="duty">근무 중</span>'}</div>
       <div class="st-tools"><button type="button" class="chipbtn" data-scope="zone" aria-pressed="${SS.scope === 'zone'}">내 구역</button><button type="button" class="chipbtn" data-scope="all" aria-pressed="${SS.scope === 'all'}">전체</button><button type="button" class="chipbtn${SS.sound ? ' on' : ''}" data-act="sound">${svg('bell')}${SS.sound ? '알림음 켜짐' : '알림음 켜기'}</button>${ctx.full ? installBtn('chipbtn') : ''}</div>`;
     GROUPS.sttabs = ST_KEYS;
     const n = { wait: wait.length, mine: mine.length, done: done.length };
@@ -1696,7 +1701,8 @@ function mountStaff(el, ctx) {
   drawSheet();
   MOUNTS.push({ refresh: evs => {
     if (SS.el !== el) return;
-    const rel = (evs || []).filter(ev => (ev.type === 'new' || ev.type === 'dup') && ev.t.status === 'new' && inScope(ev.t, sById(SS.staffId)));
+    const meNow = sById(SS.staffId);
+    const rel = isOn(meNow) ? (evs || []).filter(ev => (ev.type === 'new' || ev.type === 'dup') && ev.t.status === 'new' && inScope(ev.t, meNow)) : [];
     if (rel.length) SS.fresh = rel[rel.length - 1].t.id;
     draw();
     if (rel.length) staffBanner(rel[rel.length - 1]);
@@ -1733,7 +1739,7 @@ function staffBanner(ev) {
 function actionsFor(t) {
   const me = sById(SS.staffId);
   const a = [ACTION_PRIMARY[t.issue] || '조치 완료', '이상 없음'];
-  if (me.role !== '시설' && !t.emergency && STAFF.some(m => m.role === '시설' && covers(m, rById(t.roomId)))) a.push('시설팀으로 넘김');
+  if (me.role !== '시설' && !t.emergency && STAFF.some(m => isOn(m) && m.role === '시설' && covers(m, rById(t.roomId)))) a.push('시설팀으로 넘김');
   return a;
 }
 function drawSheet() {
@@ -2088,9 +2094,9 @@ let STAFF_ACL = {};
 const memberEmail = mid => Object.keys(STAFF_ACL).find(k => STAFF_ACL[k] && STAFF_ACL[k].memberId === mid) || '';
 function drawStaffAdm(main) {
   const noLogin = Object.keys(STAFF_ACL).filter(k => !STAFF_ACL[k] || !STAFF_ACL[k].memberId || !STAFF.some(m => m.id === STAFF_ACL[k].memberId));
-  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">담당자 앱에 들어올 사람과 맡을 구역입니다. 현장·층을 비워 두면 모든 현장·전 층 알림을 받습니다. 바꾸면 바로 저장됩니다.</p></div></div>
-    <section class="card"><h3>담당자 ${STAFF.length}명</h3><div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>이름</th><th>로그인 Google 계정</th><th>역할</th><th>현장</th><th>층 (비우면 전 층)</th><th>오늘 완료</th><th>지금</th><th></th></tr></thead><tbody>
-    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}"><td><b>${esc(m.name)}</b></td><td class="mono">${esc(memberEmail(m.id) || '—')}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td><button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="8" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
+  main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">담당자 앱에 들어올 사람과 맡을 구역입니다. 「알림」을 끈 사람은 로그인은 되지만 접수 알림·배정에서 빠집니다. 현장·층을 비워 두면 모든 현장·전 층 알림을 받습니다. 바꾸면 바로 저장됩니다.</p></div></div>
+    <section class="card"><h3>담당자 ${STAFF.length}명 <span class="hint" style="font-weight:500">· 알림 받는 사람 ${STAFF.filter(isOn).length}명</span></h3><div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>알림</th><th>이름</th><th>로그인 Google 계정</th><th>역할</th><th>현장</th><th>층 (비우면 전 층)</th><th>오늘 완료</th><th>지금</th><th></th></tr></thead><tbody>
+    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}" class="${isOn(m) ? '' : 'mem-off'}"><td><label class="sw-mini"><input type="checkbox" data-mf="active" ${isOn(m) ? 'checked' : ''} aria-label="${esc(m.name)} 알림 받기"><span>${isOn(m) ? '켬' : '끔'}</span></label></td><td><b>${esc(m.name)}</b></td><td class="mono">${esc(memberEmail(m.id) || '—')}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td><button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
     </tbody></table></div>
     ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정: ${noLogin.map(k => `<span class="mono">${esc(k)}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
     <section class="card"><h3>담당자 휴대폰에 앱 깔기</h3><div class="inst"><div class="qrbox inst-qr" id="staffAppQR"></div><div>
@@ -2323,6 +2329,7 @@ function admChange(e) {
     const mid = tr.dataset.mid;
     if (mf === 'role') updateMember(mid, { role: e.target.value === '시설' ? '시설' : '청소' });
     else if (mf === 'site') updateMember(mid, { sites: e.target.value ? [e.target.value] : [], floors: [] });
+    else if (mf === 'active') updateMember(mid, { active: !!e.target.checked });
     else if (mf === 'floor') updateMember(mid, { floors: $$('[data-mf="floor"]', tr).filter(x => x.checked).map(x => x.value) });
     return;
   }
@@ -2732,10 +2739,12 @@ async function ensureSeed() {
         const rooms = SEED_SITE.rooms.map(([floor, type, stalls, urinals]) => ({ id: `${SEED_SITE.id}-${floor}-${type}1`, floor, type, n: 1, stalls, urinals }));
         await DB.doc('sites/' + SEED_SITE.id).set({ id: SEED_SITE.id, name: SEED_SITE.name, address: SEED_SITE.address, rooms, roomIds: rooms.map(r => r.id), order: 0, at: Date.now(), by: 'seed' });
       }
-      if (!MEMBERS_RAW.some(m => m.owner)) await DB.doc('members/' + OWNER_ID).set({ id: OWNER_ID, name: '조현행', role: '청소', sites: [], floors: [], owner: true, order: 0, at: Date.now() });
+      const named = MEMBERS_RAW.find(m => m.name === '조현행');
+      if (!MEMBERS_RAW.some(m => m.owner) && named) await DB.doc('members/' + named.id).update({ owner: true });
+      else if (!MEMBERS_RAW.some(m => m.owner)) await DB.doc('members/' + OWNER_ID).set({ id: OWNER_ID, name: '조현행', role: '청소', sites: [], floors: [], owner: true, order: 0, at: Date.now() });
       await DB.doc('config/seed').set({ at: Date.now(), by: AUTH.email, site: SEED_SITE.id, owner: OWNER_ID });
     }
-    const owner = MEMBERS_RAW.find(m => m.owner) || (flag.exists ? null : { id: OWNER_ID });
+    const owner = MEMBERS_RAW.find(m => m.owner) || MEMBERS_RAW.find(m => m.name === '조현행') || (flag.exists ? null : { id: OWNER_ID });
     if (owner && !AUTH.memberId && AUTH.email) {
       await DB.doc('staff/' + AUTH.email).set({ memberId: owner.id, name: owner.name || '조현행', at: Date.now(), by: 'seed' });
       AUTH.memberId = owner.id;
