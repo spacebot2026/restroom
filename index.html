@@ -612,6 +612,7 @@ body.fullmode main{padding:0}
   #printArea{display:block!important}
   .pp{display:grid;grid-template-columns:1fr 1fr;gap:6mm;break-after:page;page-break-after:always}
   .pp:last-child{break-after:auto;page-break-after:auto}
+  .pp.one{display:block}
   .pp img{width:100%;height:auto;display:block}
   .pp-foot{grid-column:1/-1;margin:0;font:9pt sans-serif;color:#5C6674;text-align:center}
 }
@@ -1037,7 +1038,7 @@ tr.mem-off b{color:var(--muted)}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1030';
+const BUILD = '20261012-1020';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -2099,16 +2100,15 @@ function drawStaffAdm(main) {
     ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}" class="${isOn(m) ? '' : 'mem-off'}"><td><label class="sw-mini"><input type="checkbox" data-mf="active" ${isOn(m) ? 'checked' : ''} aria-label="${esc(m.name)} 알림 받기"><span>${isOn(m) ? '켬' : '끔'}</span></label></td><td><b>${esc(m.name)}</b></td><td class="mono">${esc(memberEmail(m.id) || '—')}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td><button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
     </tbody></table></div>
     ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정: ${noLogin.map(k => `<span class="mono">${esc(k)}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
-    <section class="card"><h3>담당자 휴대폰에 앱 깔기</h3><div class="inst"><div class="qrbox inst-qr" id="staffAppQR"></div><div>
-      <ol class="inst-steps"><li>휴대폰 카메라로 이 QR을 찍어 엽니다 (아이폰은 사파리로)</li><li>회사 Google 계정으로 로그인합니다 — 위 목록에 있는 계정만 들어옵니다</li><li>안드로이드: 위쪽 <b>「앱으로 설치」</b> → 「설치」 · 아이폰: 공유 버튼 → <b>「홈 화면에 추가」</b></li><li>홈 화면의 노란 <b>「담당」</b> 아이콘으로 열고 <b>「알림음 켜기」</b>를 누릅니다</li></ol>
-      <div class="se-foot"><button type="button" class="b primary" data-act="copyStaffUrl">주소 복사 (카톡으로 보내기)</button></div>
-      <p class="hint" style="margin:6px 0 0">앱이 꺼져 있으면 알림이 오지 않습니다. 근무 중에는 켜 두세요.</p></div></div></section>
+    <section class="card"><h3>담당자 휴대폰에 앱 깔기</h3>
+      <p class="hint" style="margin:0 0 10px">큰 QR과 설치 순서가 들어간 <b>A4 한 장</b>을 인쇄해서 담당자에게 나눠 주세요. 모니터의 작은 QR보다 종이로 찍는 게 훨씬 잘 찍힙니다. 아이폰은 사파리로 열어야 합니다.</p>
+      <div class="se-foot"><button type="button" class="b primary" data-act="staffQrPrint">담당자 앱 QR 인쇄 (A4)</button><button type="button" class="b" data-act="staffQrSave">그림으로 저장</button><button type="button" class="b" data-act="copyStaffUrl">주소 복사 (카톡으로 보내기)</button></div>
+      <p class="hint" style="margin:8px 0 0">앱이 꺼져 있으면 알림이 오지 않습니다. 근무 중에는 켜 두세요.</p></section>
     <div class="set-grid">
     <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="email" id="maEmail" placeholder="Google 이메일" required aria-label="Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
       <p class="hint" style="margin:8px 0 0">추가한 사람은 담당자 앱 주소에서 이 Google 계정으로 로그인하면 바로 들어옵니다. 관리자 계정도 여기 넣으면 담당자로 알림을 받습니다.</p></section>
     <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, 이메일」 — 역할을 붙이려면 「이름, 이메일, 시설」. 이미 등록된 이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, gildong@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
     </div>`;
-  renderQRCode($('#staffAppQR', main), STAFF_URL, 132);
 }
 async function addMember(name, email, role) {
   name = String(name || '').trim().slice(0, 20); email = String(email || '').trim().toLowerCase();
@@ -2252,6 +2252,55 @@ async function printSite(sid) {
   window.addEventListener('afterprint', clear);
   window.print();
 }
+// 담당자 앱 설치 안내 — A4 한 장 (큰 QR + 설치 순서)
+function drawStaffGuide(g) {
+  const W = 2480, H = 3508, F = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif', M = '"IBM Plex Mono", monospace';
+  g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#111A26'; g.fillRect(0, 0, W, 360);
+  g.fillStyle = '#F2B01E'; g.fillRect(200, 60, 240, 240);
+  g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#15110A'; g.font = '800 104px ' + F; g.fillText('담당', 320, 184);
+  g.textAlign = 'left'; g.fillStyle = '#F1F2EC'; g.font = '800 150px ' + F; g.fillText('담당자 앱 설치', 500, 150);
+  g.fillStyle = '#93A0B0'; g.font = '500 60px ' + F; g.fillText('화장실 불편접수 · 현장 담당자용', 504, 266);
+  const q = qrCanvas(STAFF_URL, 1100), qx = (W - 1100) / 2, qy = 470;
+  g.strokeStyle = '#C9CFC6'; g.lineWidth = 6; g.strokeRect(qx - 50, qy - 50, 1200, 1200);
+  if (q) { g.imageSmoothingEnabled = false; g.drawImage(q, qx, qy, 1100, 1100); }
+  g.textAlign = 'center'; g.fillStyle = '#18222F'; g.font = '800 96px ' + F; g.fillText('휴대폰 카메라로 찍어 주세요', W / 2, 1760);
+  const steps = [
+    ['휴대폰 카메라로 위 QR을 찍어 엽니다', '아이폰은 ‘사파리’로 열어 주세요'],
+    ['안내받은 계정으로 로그인합니다', '관리자가 등록한 사람만 들어올 수 있습니다'],
+    ['안드로이드: 위쪽 「앱으로 설치」 → 「설치」', '아이폰: 공유 버튼 → 「홈 화면에 추가」'],
+    ['홈 화면의 노란 「담당」 아이콘으로 열고', '「알림음 켜기」를 누릅니다']
+  ];
+  let y = 1990;
+  steps.forEach((st, i) => {
+    g.fillStyle = '#F2B01E'; g.beginPath(); g.arc(300, y + 70, 64, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#15110A'; g.textAlign = 'center'; g.font = '800 76px ' + F; g.fillText(String(i + 1), 300, y + 74);
+    g.textAlign = 'left'; g.fillStyle = '#18222F'; fitFont(g, st[0], 700, 64, F, 1700); g.fillText(st[0], 420, y + 38);
+    g.fillStyle = '#3F4A58'; fitFont(g, st[1], 500, 54, F, 1700); g.fillText(st[1], 420, y + 116);
+    y += 300;
+  });
+  g.textAlign = 'center'; g.fillStyle = '#5C6674'; g.font = '500 48px ' + F; g.fillText('근무 중에는 앱을 켜 두세요 — 앱이 꺼져 있으면 알림이 오지 않습니다', W / 2, 3300);
+  g.fillStyle = '#9AA3AE'; fitFont(g, STAFF_URL, 400, 44, M, 2000); g.fillText(STAFF_URL, W / 2, 3400);
+}
+function staffGuideCanvas() { const c = document.createElement('canvas'); c.width = 2480; c.height = 3508; drawStaffGuide(c.getContext('2d')); return c; }
+async function printStaffGuide() {
+  if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
+  toast('인쇄 화면을 준비합니다…');
+  await fontsReady();
+  const src = staffGuideCanvas().toDataURL('image/png');
+  let box = $('#printArea');
+  if (!box) { box = document.createElement('div'); box.id = 'printArea'; document.body.appendChild(box); }
+  box.innerHTML = `<section class="pp one"><img src="${src}" alt="담당자 앱 설치 안내"></section>`;
+  await Promise.all(Array.from(box.querySelectorAll('img')).map(im => (im.decode ? im.decode().catch(() => {}) : null)));
+  const clear = () => { window.removeEventListener('afterprint', clear); setTimeout(() => { box.innerHTML = ''; }, 500); };
+  window.addEventListener('afterprint', clear);
+  window.print();
+}
+async function saveStaffGuide() {
+  if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
+  await fontsReady();
+  await saveCanvas(staffGuideCanvas(), '담당자앱_설치안내_QR.png');
+}
 async function exportCSV() {
   if (!DL) { toast('이 보기에서는 파일 저장이 안 됩니다'); return; }
   const rows = [['id', 'created_at_kst', 'site', 'floor', 'restroom', 'stall', 'issue', 'status', 'staff', 'reports', 'reopened', 'ack_min', 'done_min', 'over_sla', 'emergency', 'action']];
@@ -2291,6 +2340,8 @@ async function admClick(e) {
   else if (act === 'qrsave') saveSticker(rById(AS.selRoom));
   else if (act === 'sheet') saveSheet(b.dataset.site);
   else if (act === 'printSite') printSite(b.dataset.site);
+  else if (act === 'staffQrPrint') printStaffGuide();
+  else if (act === 'staffQrSave') saveStaffGuide();
   else if (act === 'openCustomer') { S.qrRoom = AS.selRoom; S.view = 'qr'; render(); window.scrollTo(0, 0); }
   else if (act === 'siteNew') editSite('');
   else if (act === 'siteEdit') editSite(b.dataset.site);
