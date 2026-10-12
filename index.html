@@ -25,9 +25,7 @@
   document.title = k === 'staff' ? '화장실 담당자' : '화장실 관리';
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="fonts/pretendard.css">
 <style>
 [hidden]{display:none!important}
 img{max-width:100%}
@@ -42,8 +40,8 @@ img{max-width:100%}
   --edit:#FFE36E; --edit-ink:#3A2E00;
   --dev:#23272D;
   --shadow:0 1px 2px rgba(24,34,47,.06),0 10px 28px rgba(24,34,47,.10);
-  --font:"IBM Plex Sans KR","Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
-  --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  --font:"Pretendard Variable",Pretendard,"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  --mono:"Pretendard Variable",Pretendard,"Malgun Gothic","Apple SD Gothic Neo",system-ui,sans-serif;
   /* 벽 태블릿·QR 화면은 기기 안 화면이라 테마와 무관하게 고정 */
   --k-bg:#111A26; --k-rail:#0B121B; --k-tile:#1B2634; --k-tile-hi:#243349; --k-line:#2B3A4D; --k-text:#F1F2EC; --k-muted:#93A0B0; --k-amber:#F2B01E;
   --ph:clamp(520px, calc(100vh - 150px), 690px);
@@ -638,6 +636,37 @@ body.fullmode main{padding:0}
 tr.mem-off td{color:var(--faint)}
 tr.mem-off b{color:var(--muted)}
 .duty.off{color:var(--faint)}
+
+/* 숫자·코드 칸: 자릿수 폭 고정(tnum) · 0 에 빗금(zero) · 소문자 l 에 꼬리(cv05) · 대문자 I 에 가로줄(cv08) */
+.mono,
+.logo,
+.brand small,
+.k-floor,
+.k-stat b,
+.k-door,
+.k-sent .k-eta b,
+.k-track time,
+.sbar,
+.qa-floor,
+.qa-eta b,
+.qa-track time,
+.st-tab .n,
+.ct-time,
+.kpi b,
+.bsec .fl,
+.cell b,
+.hchart .val,
+.hchart .lab,
+.seg .chipbtn .n,
+.sk-floor,
+.qr-fallback,
+.sc-stats dd,
+input.num,
+.tl time,
+.pop code,
+.mp-shots figure,
+.pw-modal input#pwId,
+.pw-modal input#pwPw{font-feature-settings:"tnum","zero","cv05","cv08"}
 </style>
 </head>
 <body>
@@ -1049,7 +1078,7 @@ tr.mem-off b{color:var(--muted)}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1100';
+const BUILD = '20261012-1120';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -2381,12 +2410,12 @@ function fitFont(g, text, weight, size, family, maxW) { let fs = size; g.font = 
 function drawSticker(g, room, x, y, w) {
   const s = w / 600;
   g.save(); g.translate(x, y); g.scale(s, s);
-  const F = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif';
+  const F = '"Pretendard Variable", "Malgun Gothic", sans-serif';
   g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, 600, 700);
   g.strokeStyle = '#C9CFC6'; g.lineWidth = 3; g.setLineDash([14, 10]); g.strokeRect(2, 2, 596, 696); g.setLineDash([]);
   g.fillStyle = '#111A26'; g.fillRect(0, 0, 600, 124);
   g.fillStyle = '#F2B01E'; g.fillRect(30, 27, 118, 70);
-  g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#15110A'; fitFont(g, room.floor, 700, 50, '"IBM Plex Mono", monospace', 108); g.fillText(room.floor, 89, 63);
+  g.textBaseline = 'middle'; g.textAlign = 'center'; g.fillStyle = '#15110A'; fitFont(g, room.floor, 700, 50, F, 108); g.fillText(room.floor, 89, 63);
   g.textAlign = 'left'; g.fillStyle = '#F1F2EC'; fitFont(g, TYPE_KO[room.type] + roomNo(room), 700, 42, F, 400); g.fillText(TYPE_KO[room.type] + roomNo(room), 170, 50);
   g.fillStyle = '#93A0B0'; fitFont(g, room.siteName, 500, 27, F, 400); g.fillText(room.siteName, 170, 94);
   const q = qrCanvas(qrURL(room.id), 360);
@@ -2394,7 +2423,7 @@ function drawSticker(g, room, x, y, w) {
   g.textAlign = 'center'; g.fillStyle = '#18222F'; g.font = '700 36px ' + F;
   g.fillText('불편한 점이 있으면', 300, 553); g.fillText('휴대폰 카메라로 찍어 주세요', 300, 601);
   g.fillStyle = '#5C6674'; g.font = '400 21px ' + F; g.fillText('앱 설치 없이 바로 접수 · 이름·전화번호는 받지 않습니다', 300, 648);
-  g.fillStyle = '#9AA3AE'; g.font = '400 17px "IBM Plex Mono", monospace'; g.fillText(room.id, 300, 680);
+  g.fillStyle = '#9AA3AE'; g.font = '500 17px ' + F; g.fillText(room.id, 300, 680);
   g.restore();
 }
 async function saveCanvas(c, filename) {
@@ -2409,12 +2438,13 @@ async function saveSticker(room) {
   drawSticker(c.getContext('2d'), room, 0, 0, 1200);
   await saveCanvas(c, 'QR스티커_' + room.id + '.png');
 }
-async function fontsReady() { try { if (document.fonts) { await document.fonts.load('700 36px "IBM Plex Sans KR"'); await document.fonts.load('700 50px "IBM Plex Mono"'); } } catch (e) { /* 무시 */ } }
+// 그림으로 그리기 전에, 쓸 글자가 들어 있는 Pretendard 조각을 미리 내려받는다 (그리는 함수의 문구 + 이번에 들어갈 이름·ID)
+async function fontsReady(extra) { try { if (document.fonts) await document.fonts.load('700 36px "Pretendard Variable"', [drawSticker, drawStaffGuide].map(f => f.toString()).join('') + (extra || '')); } catch (e) { /* 무시 */ } }
 // A4 한 장에 2×2 (큰 스티커) — 4곳이 넘으면 여러 장
 async function saveSheet(sid) {
   if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
   const st = siteById(sid), rs = ROOMS.filter(r => r.site === sid); if (!st || !rs.length) return;
-  await fontsReady();
+  await fontsReady(st.name + rs.map(r => r.id + r.floor + r.siteName).join(''));
   const pages = Math.ceil(rs.length / 4);
   for (let p = 0; p < pages; p++) {
     const c = document.createElement('canvas'); c.width = 2480; c.height = 3508;
@@ -2422,7 +2452,7 @@ async function saveSheet(sid) {
     g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, c.width, c.height);
     const mx = 150, gap = 80, cw = (2480 - mx * 2 - gap) / 2, ch = cw * 7 / 6;
     rs.slice(p * 4, p * 4 + 4).forEach((r, i) => drawSticker(g, r, mx + (i % 2) * (cw + gap), 170 + Math.floor(i / 2) * (ch + gap), cw));
-    g.fillStyle = '#5C6674'; g.font = '400 36px "IBM Plex Sans KR", "Malgun Gothic", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#5C6674'; g.font = '400 36px "Pretendard Variable", "Malgun Gothic", sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
     g.fillText(`${st.name} · 화장실 불편접수 QR · ${p + 1}/${pages}장 · 점선을 따라 자르세요`, 1240, 3400);
     await saveCanvas(c, `QR스티커_${st.name.replace(/[\\/:*?"<>|\s]+/g, '_')}_${p + 1}.png`);
   }
@@ -2431,7 +2461,7 @@ async function printSite(sid) {
   if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
   const st = siteById(sid), rs = ROOMS.filter(r => r.site === sid); if (!st || !rs.length) return;
   toast('인쇄 화면을 준비합니다…');
-  await fontsReady();
+  await fontsReady(st.name + rs.map(r => r.id + r.floor + r.siteName).join(''));
   const imgs = rs.map(r => { const c = document.createElement('canvas'); c.width = 1200; c.height = 1400; drawSticker(c.getContext('2d'), r, 0, 0, 1200); return c.toDataURL('image/png'); });
   let box = $('#printArea');
   if (!box) { box = document.createElement('div'); box.id = 'printArea'; document.body.appendChild(box); }
@@ -2444,7 +2474,7 @@ async function printSite(sid) {
 }
 // 담당자 앱 설치 안내 — A4 한 장 (큰 QR + 설치 순서). cred 가 있으면 그 사람의 ID·비밀번호가 함께 들어간다.
 function drawStaffGuide(g, cred) {
-  const W = 2480, F = '"IBM Plex Sans KR", "Malgun Gothic", sans-serif', M = '"IBM Plex Mono", monospace';
+  const W = 2480, F = '"Pretendard Variable", "Malgun Gothic", sans-serif', M = F, CODE = 'Consolas, "DejaVu Sans Mono", "Liberation Mono", "Courier New", monospace'; // ID·비밀번호는 글자 구별이 중요해 고정폭 글꼴
   g.fillStyle = '#FFFFFF'; g.fillRect(0, 0, W, 3508);
   g.fillStyle = '#111A26'; g.fillRect(0, 0, W, 360);
   g.fillStyle = '#F2B01E'; g.fillRect(200, 60, 240, 240);
@@ -2458,7 +2488,7 @@ function drawStaffGuide(g, cred) {
   if (cred) {
     g.fillStyle = '#FFF6DB'; g.fillRect(200, 1640, 2080, 440); g.strokeStyle = '#F2B01E'; g.lineWidth = 8; g.strokeRect(200, 1640, 2080, 440);
     g.textAlign = 'left'; g.fillStyle = '#5C6674'; g.font = '600 60px ' + F; g.fillText('ID', 280, 1750); g.fillText('비밀번호', 280, 1950);
-    g.fillStyle = '#111A26'; fitFont(g, cred.id, 700, 140, M, 1400); g.fillText(cred.id, 780, 1750); fitFont(g, cred.pw, 700, 140, M, 1400); g.fillText(cred.pw, 780, 1950);
+    g.fillStyle = '#111A26'; fitFont(g, cred.id, 700, 140, CODE, 1400); g.fillText(cred.id, 780, 1750); fitFont(g, cred.pw, 700, 140, CODE, 1400); g.fillText(cred.pw, 780, 1950);
     g.textAlign = 'center'; g.fillStyle = '#B42318'; g.font = '600 46px ' + F; g.fillText('비밀번호는 다른 사람에게 알려 주지 마세요 · 설치와 로그인이 끝나면 이 종이는 파기하세요', W / 2, 2140);
   }
   const steps = [
@@ -2483,7 +2513,7 @@ function staffGuideCanvas(cred) { const c = document.createElement('canvas'); c.
 async function printStaffGuide(creds) {
   if (typeof window.QRCode !== 'function') { toast('QR 도구를 불러오지 못했습니다'); return; }
   toast('인쇄 화면을 준비합니다…');
-  await fontsReady();
+  await fontsReady((creds || []).map(c => c.name + c.id + c.pw).join(''));
   const srcs = (creds && creds.length ? creds : [null]).map(c => staffGuideCanvas(c).toDataURL('image/png'));
   let box = $('#printArea');
   if (!box) { box = document.createElement('div'); box.id = 'printArea'; document.body.appendChild(box); }
