@@ -1078,11 +1078,12 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1120';
+const BUILD = '20261012-1724';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const dim = v => { const n = Math.round(Number(v)); return Number.isFinite(n) && n > 0 && n < 100000 ? n : '?'; };
 const pad2 = n => String(n).padStart(2, '0');
 const M = 60000;
 const fParts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
@@ -1345,7 +1346,8 @@ function genPwNum() { const a = new Uint32Array(8); crypto.getRandomValues(a); r
 function genPw() { const A = 'abcdefghjkmnpqrstuvwxyz23456789', a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, x => A[x % A.length]).join(''); }
 const CH = { qr: 'QR 휴대폰' };
 function newIdAt(ts, rnd) { const o = kst(ts); const r = rnd ? rnd() : Math.random(); return o.month + o.day + '-' + o.hour + o.minute + '-' + Math.floor(r * 1296).toString(36).toUpperCase().padStart(2, '0'); }
-const photoSrc = p => { if (!p) return ''; if (p.pid) { if (PHOTO_CACHE[p.pid]) return PHOTO_CACHE[p.pid]; loadPhoto(p.pid); return BLANK; } return p.data || p.url || ''; };
+const safeImgSrc = s => (typeof s === 'string' && /^data:image\/(?:jpeg|png|gif|webp);base64,[A-Za-z0-9+\/=]+$/.test(s)) ? s : BLANK;
+const photoSrc = p => { if (!p) return ''; if (p.pid) { if (PHOTO_CACHE[p.pid]) return safeImgSrc(PHOTO_CACHE[p.pid]); loadPhoto(p.pid); return BLANK; } return safeImgSrc(p.data || p.url); };
 
 /* ================= 저장소 (Firebase) ================= */
 const FIREBASE_CONFIG = {
@@ -2635,7 +2637,7 @@ function admInput(e) {
 function timelineHTML(t) { return (t.log || []).slice().sort((a, b) => a.t - b.t).map((x, i) => `<li><time>${hm(x.t)}</time>${esc(x.text)}${i ? `<em>+${mins(x.t - t.createdAt)}분</em>` : ''}</li>`).join(''); }
 function photosHTML(t) {
   if (!t.photo && !t.afterPhoto) return '<p class="hint" style="margin:0">사진 없음</p>';
-  const fig = (p, cap) => `<figure><img src="${esc(photoSrc(p))}" alt="${cap}"><figcaption>${cap} · ${p.w || '?'}×${p.h || '?'}${p.shrunk ? ' (줄임)' : ''}</figcaption></figure>`;
+  const fig = (p, cap) => `<figure><img src="${esc(photoSrc(p))}" alt="${cap}"><figcaption>${cap} · ${esc(dim(p.w))}×${esc(dim(p.h))}${p.shrunk ? ' (줄임)' : ''}</figcaption></figure>`;
   return `<div class="photos" data-sp-zoom>${t.photo ? fig(t.photo, '고객 사진') : ''}${t.afterPhoto ? fig(t.afterPhoto, '조치 후') : ''}</div>`;
 }
 function detailField(k, t) {
