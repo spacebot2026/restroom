@@ -1049,7 +1049,7 @@ tr.mem-off b{color:var(--muted)}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1045';
+const BUILD = '20261012-1100';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1295,17 +1295,21 @@ const STAFF_MAIL_DOMAIN = 'staff.space-dust.com';
 const toHex = t => Array.from(new TextEncoder().encode(t), b => b.toString(16).padStart(2, '0')).join('');
 const fromHex = h => new TextDecoder().decode(Uint8Array.from(h.match(/../g), x => parseInt(x, 16)));
 // 영문 소문자·숫자·-·_ 만 있는 ID 는 그대로, 한글 등은 'u-' + 16진수로 바꿔 가짜 주소의 앞부분에 쓴다 (로그인할 때는 그냥 ID 를 입력)
-const loginEmail = id => (/^[a-z0-9][a-z0-9_-]*$/.test(id) && !id.startsWith('u-') ? id : 'u-' + toHex(id)) + '@' + STAFF_MAIL_DOMAIN;
-const loginIdOf = em => {
+const loginBase = id => (/^[a-z0-9][a-z0-9_-]*$/.test(id) && !id.startsWith('u-') ? id : 'u-' + toHex(id));
+// v = 비밀번호를 초기화한 횟수 + 1. 무료 요금제에서는 남의 비밀번호를 서버에서 바꿀 수 없어, 초기화하면 같은 ID 로 새 계정(v+1)을 만들고 예전 계정은 쓰지 못하게 한다
+const loginEmail = (id, v) => loginBase(id) + (v > 1 ? '.' + v : '') + '@' + STAFF_MAIL_DOMAIN;
+const loginParts = em => {
   em = String(em || '').toLowerCase(); const sfx = '@' + STAFF_MAIL_DOMAIN;
-  if (!em.endsWith(sfx)) return '';
-  const l = em.slice(0, -sfx.length);
-  if (/^u-([0-9a-f]{2})+$/.test(l)) { try { return fromHex(l.slice(2)); } catch (e) { return ''; } }
-  return l;
+  if (!em.endsWith(sfx)) return null;
+  let l = em.slice(0, -sfx.length), v = 1; const m = l.match(/^(.+)\.(\d{1,2})$/); if (m) { l = m[1]; v = +m[2]; }
+  if (/^u-([0-9a-f]{2})+$/.test(l)) { try { return { id: fromHex(l.slice(2)), v }; } catch (e) { return null; } }
+  return { id: l, v };
 };
+const loginIdOf = em => { const x = loginParts(em); return x ? x.id : ''; };
+const loginVerOf = em => { const x = loginParts(em); return x ? x.v : 1; };
 // 입력한 ID 다듬기: 공백 제거·소문자, 전화번호 모양(010-1234-5678)은 하이픈을 뺀다
 const normLoginId = t => { t = String(t || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ''); return /^0\d{1,2}-\d{3,4}-\d{4}$/.test(t) ? t.replace(/-/g, '') : t; };
-const validLoginId = id => /^[a-z0-9가-힣_-]{2,20}$/.test(id) && loginEmail(id).split('@')[0].length <= 63;
+const validLoginId = id => /^[a-z0-9가-힣_-]{2,20}$/.test(id) && loginBase(id).length <= 58;
 const ID_RULE = '글자(영문·한글)·숫자·-·_ 로 2~20자 — 숫자만(전화번호)도 됩니다';
 const isPwUser = u => !!(u && !u.isAnonymous && loginIdOf(u.email) && (u.providerData || []).some(x => x && x.providerId === 'password'));
 function genPwNum() { const a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, x => x % 10).join(''); }
@@ -2129,7 +2133,7 @@ function drawStaffAdm(main) {
   const noLogin = Object.keys(STAFF_ACL).filter(k => !STAFF_ACL[k] || !STAFF_ACL[k].memberId || !STAFF.some(m => m.id === STAFF_ACL[k].memberId));
   main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_staff'))}</h1><p class="hint">담당자 앱에 들어올 사람과 맡을 구역입니다. 로그인은 <b>ID·비밀번호</b>(Google 계정이 없는 직원) 또는 Google 계정 중 편한 쪽으로 등록합니다. 「알림」을 끈 사람은 로그인은 되지만 접수 알림·배정에서 빠집니다. 현장·층을 비워 두면 모든 현장·전 층 알림을 받습니다. 바꾸면 바로 저장됩니다.</p></div></div>
     <section class="card"><h3>담당자 ${STAFF.length}명 <span class="hint" style="font-weight:500">· 알림 받는 사람 ${STAFF.filter(isOn).length}명</span></h3><div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>알림</th><th>이름</th><th>로그인</th><th>역할</th><th>현장</th><th>층 (비우면 전 층)</th><th>오늘 완료</th><th>지금</th><th></th></tr></thead><tbody>
-    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}" class="${isOn(m) ? '' : 'mem-off'}"><td><label class="sw-mini"><input type="checkbox" data-mf="active" ${isOn(m) ? 'checked' : ''} aria-label="${esc(m.name)} 알림 받기"><span>${isOn(m) ? '켬' : '끔'}</span></label></td><td><b>${esc(m.name)}</b></td><td class="mono">${memberLogins(m.id).map(k => esc(loginLabel(k))).join('<br>') || '—'}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td class="nowrap"><button type="button" class="b" data-act="memPw">${memberLogins(m.id).some(loginIdOf) ? '비번 재발급' : 'ID·비번 만들기'}</button> <button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
+    ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}" class="${isOn(m) ? '' : 'mem-off'}"><td><label class="sw-mini"><input type="checkbox" data-mf="active" ${isOn(m) ? 'checked' : ''} aria-label="${esc(m.name)} 알림 받기"><span>${isOn(m) ? '켬' : '끔'}</span></label></td><td><b>${esc(m.name)}</b></td><td class="mono">${memberLogins(m.id).map(k => esc(loginLabel(k))).join('<br>') || '—'}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td class="nowrap"><button type="button" class="b" data-act="memPw">${memberLogins(m.id).some(loginIdOf) ? '비번 초기화' : 'ID·비번 만들기'}</button> <button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="9" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
     </tbody></table></div>
     ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정·ID: ${noLogin.map(k => `<span class="mono">${esc(loginLabel(k))}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
     <section class="card"><h3>담당자 휴대폰에 앱 깔기</h3>
@@ -2160,38 +2164,50 @@ async function addMember(name, email, role) {
 const PW_ERR = { 'auth/email-already-in-use': '이미 쓴 ID입니다 (지운 사람의 ID도 다시 쓸 수 없습니다). 다른 ID로 하세요', 'auth/operation-not-allowed': 'Firebase에서 「이메일/비밀번호」 로그인이 아직 켜져 있지 않습니다', 'auth/weak-password': '비밀번호가 너무 짧습니다 (6자 이상)', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '잠시 뒤에 다시 해 주세요' };
 const pwErr = e => PW_ERR[errCode(e)] || ('실패 (' + errCode(e) + ')');
 // 관리자 본인의 로그인이 바뀌지 않도록, 별도 Firebase 앱 인스턴스로 계정을 만든다
-async function createLogin(id, pw) {
+async function createLogin(id, pw, v) {
   let app; try { app = firebase.app('pw'); } catch (e) { app = firebase.initializeApp(FIREBASE_CONFIG, 'pw'); }
   const a = app.auth();
-  try { await a.createUserWithEmailAndPassword(loginEmail(id), pw); }
+  try { await a.createUserWithEmailAndPassword(loginEmail(id, v), pw); }
   finally { try { await a.signOut(); } catch (e) { /* 무시 */ } }
 }
+const idTakenBy = id => Object.keys(STAFF_ACL).filter(k => loginIdOf(k) === id).map(k => (STAFF_ACL[k] || {}).memberId);
+// 새 계정을 만든다. 같은 ID 의 계정이 이미 있으면(예전에 지운 사람·비밀번호 초기화) 다음 버전으로 만든다. 만든 버전을 돌려준다
+async function createLoginAuto(id, pw) {
+  let v0 = 0; try { const d = await DB.doc('loginV/' + loginBase(id)).get(); if (d.exists) v0 = +((d.data() || {}).v) || 0; } catch (e) { /* 없으면 1판부터 */ }
+  const start = v0 + 1;
+  for (let v = start; v < start + 8; v++) {
+    try { await createLogin(id, pw, v); return v; }
+    catch (e) { if (errCode(e) !== 'auth/email-already-in-use') throw e; }
+  }
+  throw { code: 'auth/email-already-in-use' };
+}
+const saveVerOps = (batch, id, v) => { if (v > 1) batch.set(DB.doc('loginV/' + loginBase(id)), { v, at: Date.now() }); };
 async function addPwMember(name, id, role, pw) {
   name = String(name || '').trim().slice(0, 20); id = normLoginId(id);
   if (!name || !validLoginId(id)) return { r: 'bad' };
-  const em = loginEmail(id);
-  if (STAFF_ACL[em]) return { r: 'skip' };
+  if (idTakenBy(id).length) return { r: 'skip' };
   pw = pw || genPw();
-  try { await createLogin(id, pw); } catch (e) { return { r: 'err', msg: pwErr(e), code: errCode(e) }; }
-  const mid = newMemberId(), now = Date.now();
+  let v; try { v = await createLoginAuto(id, pw); } catch (e) { return { r: 'err', msg: pwErr(e), code: errCode(e) }; }
+  const em = loginEmail(id, v), mid = newMemberId(), now = Date.now();
   try {
     const batch = DB.batch();
     batch.set(DB.doc('members/' + mid), { id: mid, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
     batch.set(DB.doc('staff/' + em), { memberId: mid, name, kind: 'pw', at: now, by: AUTH.email });
+    saveVerOps(batch, id, v);
     await batch.commit();
-  } catch (e) { return { r: 'err', msg: '계정은 만들어졌지만 담당자로 저장하지 못했습니다 (' + errCode(e) + '). 같은 ID는 다시 못 쓰니 다른 ID로 하세요', code: errCode(e) }; }
+  } catch (e) { return { r: 'err', msg: '계정은 만들어졌지만 담당자로 저장하지 못했습니다 (' + errCode(e) + '). 한 번 더 시도해 주세요', code: errCode(e) }; }
   STAFF_ACL[em] = { memberId: mid, name, kind: 'pw' };
   return { r: 'ok', cred: { name, id, pw } };
 }
-// 기존 담당자에게 ID/비밀번호 로그인을 만들어 주거나(새로), 분실했을 때 새 ID·비밀번호로 다시 발급한다 (예전 ID 는 막힌다)
+// 기존 담당자에게 ID/비밀번호 로그인을 만들어 주거나, 비밀번호를 초기화해 새로 부여한다 (같은 ID 로 해도 된다 — 예전 비밀번호는 쓸 수 없게 된다)
 async function setMemberLogin(m, id, pw) {
-  const em = loginEmail(id);
-  await createLogin(id, pw);
+  const v = await createLoginAuto(id, pw), em = loginEmail(id, v), old = memberLogins(m.id).filter(loginIdOf);
   const batch = DB.batch();
-  memberLogins(m.id).filter(loginIdOf).forEach(k => batch.delete(DB.doc('staff/' + k)));
+  old.forEach(k => batch.delete(DB.doc('staff/' + k)));
   batch.set(DB.doc('staff/' + em), { memberId: m.id, name: m.name, kind: 'pw', at: Date.now(), by: AUTH.email });
+  saveVerOps(batch, id, v);
   await batch.commit();
-  memberLogins(m.id).filter(loginIdOf).forEach(k => { delete STAFF_ACL[k]; });
+  old.forEach(k => { delete STAFF_ACL[k]; });
   STAFF_ACL[em] = { memberId: m.id, name: m.name, kind: 'pw' };
 }
 async function addMemberForm() {
@@ -2259,16 +2275,16 @@ function openPwModal(mid) {
   const m = STAFF.find(x => x.id === mid); if (!m) return;
   const lg = memberLogins(mid), oldId = loginIdOf(lg.find(loginIdOf) || ''), gm = lg.find(k => !loginIdOf(k)) || '';
   let sug = '';
-  if (oldId) { const x = oldId.match(/^(.*?)(\d*)$/); sug = !x[1] ? oldId + '-2' : x[1] + (x[2] ? String(+x[2] + 1).padStart(x[2].length, '0') : 2); }
+  if (oldId) sug = oldId;
   else if (gm) sug = gm.split('@')[0].replace(/[^a-z0-9_-]/g, '');
   if (!validLoginId(sug)) sug = '';
-  setModal(modalShell('pwT', oldId ? m.name + ' — 비밀번호 재발급' : m.name + ' — ID·비밀번호 만들기',
-    `<p class="hint" style="margin:0 0 10px">${oldId ? `비밀번호를 잊었을 때 쓰는 기능입니다. <b>새 ID와 비밀번호</b>를 만들고, 예전 ID(<span class="mono">${esc(oldId)}</span>)로는 더 이상 로그인할 수 없게 됩니다. 접수 기록·구역은 그대로입니다.` : `Google 계정이 없는 직원이 ID와 비밀번호로 담당자 앱에 들어오게 합니다.${gm ? ' 기존 Google 로그인(' + esc(gm) + ')도 그대로 쓸 수 있습니다.' : ''}`}</p>
+  setModal(modalShell('pwT', oldId ? m.name + ' — 비밀번호 초기화' : m.name + ' — ID·비밀번호 만들기',
+    `<p class="hint" style="margin:0 0 10px">${oldId ? `비밀번호를 잊었을 때 쓰는 기능입니다. <b>같은 ID로 새 비밀번호</b>를 부여하고, 예전 비밀번호로는 더 이상 로그인할 수 없게 됩니다. 접수 기록·구역은 그대로입니다. (ID를 바꾸고 싶으면 아래 칸을 고치세요)` : `Google 계정이 없는 직원이 ID와 비밀번호로 담당자 앱에 들어오게 합니다.${gm ? ' 기존 Google 로그인(' + esc(gm) + ')도 그대로 쓸 수 있습니다.' : ''}`}</p>
      <label class="fld"><span class="lab">ID (전화번호 같은 숫자만도 됩니다)</span><input type="text" id="pwId" value="${esc(sug)}" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="20"></label>
      <label class="fld" style="margin-top:10px"><span class="lab">비밀번호 (6자 이상, 숫자만도 됩니다 — 자동으로 만들었습니다)</span><span class="pw-row"><input type="text" id="pwPw" value="${genPw()}" autocomplete="off" spellcheck="false" maxlength="40"><button type="button" class="b" data-act="pwGen">다시 만들기</button><button type="button" class="b" data-act="pwGenNum">숫자 8자리</button></span></label>
      <p class="gate-bad" id="pwErr" hidden></p>
      <p class="hint" style="margin:10px 0 0">비밀번호는 서버에 저장되지 않습니다. 만든 뒤 나오는 창에서 안내장을 인쇄하세요.</p>`,
-    `<span class="grow"></span><button type="button" class="b" data-act="mClose">취소</button><button type="button" class="b primary" data-act="pwMake" data-mid="${esc(mid)}">${oldId ? '재발급' : '만들기'}</button>`));
+    `<span class="grow"></span><button type="button" class="b" data-act="mClose">취소</button><button type="button" class="b primary" data-act="pwMake" data-mid="${esc(mid)}">${oldId ? '초기화하고 부여' : '만들기'}</button>`));
 }
 function openAcct(view) {
   const u = AUTHX.currentUser; if (!u || u.isAnonymous) return;
@@ -2283,7 +2299,7 @@ function openAcct(view) {
     return;
   }
   setModal(modalShell('acT', '내 계정',
-    `<p style="margin:0 0 6px"><b class="mono">${esc(who)}</b></p><p class="hint" style="margin:0">${pw ? '비밀번호를 잊었다면 관리자에게 「비번 재발급」을 요청하세요.' : 'Google 계정으로 로그인했습니다.'}</p>`,
+    `<p style="margin:0 0 6px"><b class="mono">${esc(who)}</b></p><p class="hint" style="margin:0">${pw ? '비밀번호를 잊었다면 관리자에게 「비번 초기화」를 요청하세요.' : 'Google 계정으로 로그인했습니다.'}</p>`,
     `${pw ? '<button type="button" class="b" data-act="pcOpen">비밀번호 바꾸기</button>' : ''}<span class="grow"></span><button type="button" class="b danger" data-act="logout">로그아웃</button><button type="button" class="b" data-act="mClose">닫기</button>`));
 }
 async function onModalClick(e) {
@@ -2298,7 +2314,7 @@ async function onModalClick(e) {
   else if (a === 'pwMake') {
     const m = STAFF.find(x => x.id === b.dataset.mid); if (!m) return;
     const id = normLoginId($('#pwId').value), pw = String($('#pwPw').value || ''), er = $('#pwErr');
-    const bad = !validLoginId(id) ? 'ID는 ' + ID_RULE + '입니다' : pw.length < 6 ? '비밀번호는 6자 이상입니다' : STAFF_ACL[loginEmail(id)] ? '이미 등록된 ID입니다' : '';
+    const bad = !validLoginId(id) ? 'ID는 ' + ID_RULE + '입니다' : pw.length < 6 ? '비밀번호는 6자 이상입니다' : idTakenBy(id).some(x => x !== m.id) ? '다른 담당자가 쓰는 ID입니다' : '';
     er.textContent = bad; er.hidden = !bad; if (bad) return;
     if (pw === id && !await askConfirm('ID와 같은 비밀번호는 누구나 추측할 수 있습니다. 그래도 만들까요?', '그래도 만들기')) return;
     b.disabled = true; b.textContent = '만드는 중…';
@@ -2906,13 +2922,15 @@ document.addEventListener('submit', async e => {
   if (!e.target || e.target.id !== 'pwLogin') return;
   e.preventDefault();
   const id = normLoginId(e.target.querySelector('#lgId').value), pw = e.target.querySelector('#lgPw').value;
-  const er = e.target.querySelector('#lgErr'), btn = e.target.querySelector('button[type="submit"]');
-  const show = m => { er.textContent = m; er.hidden = !m; };
+  const show = m => { const er = document.querySelector('#lgErr'); if (er) { er.textContent = m; er.hidden = !m; } };
+  const busy = on => { const b = document.querySelector('#pwLogin button[type="submit"]'); if (b) b.disabled = on; };
   if (!id || !pw) { show('ID와 비밀번호를 넣어 주세요'); return; }
   if (!validLoginId(id)) { show('ID 또는 비밀번호가 맞지 않습니다'); return; }
-  show(''); btn.disabled = true;
-  try { await AUTHX.signInWithEmailAndPassword(loginEmail(id), pw); }
-  catch (err) { show(LOGIN_ERR[errCode(err)] || ('로그인하지 못했습니다 (' + errCode(err) + ')')); btn.disabled = false; }
+  show(''); busy(true);
+  // 관리자가 비밀번호를 초기화한 ID 는 새 계정(버전)이므로, 공개된 버전 표(loginV, ID 를 알아야만 읽힘)를 먼저 읽는다
+  let v = 1; try { const d = await DB.doc('loginV/' + loginBase(id)).get(); if (d.exists) v = Math.max(1, +((d.data() || {}).v) || 1); } catch (er) { /* 읽지 못하면 1판 */ }
+  try { await AUTHX.signInWithEmailAndPassword(loginEmail(id, v), pw); }
+  catch (err) { show(LOGIN_ERR[errCode(err)] || ('로그인하지 못했습니다 (' + errCode(err) + ')')); busy(false); }
 });
 function applyRoleUI() {
   const admin = AUTH.role === 'admin';
