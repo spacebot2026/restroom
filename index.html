@@ -1049,7 +1049,7 @@ tr.mem-off b{color:var(--muted)}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1030';
+const BUILD = '20261012-1045';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1292,10 +1292,23 @@ const qrURL = roomId => BASE_URL + '#r-' + roomId.toLowerCase();
 const STAFF_URL = BASE_URL + '?app=staff';
 // ID/비밀번호 로그인: 직원은 ID만 입력하고, 앱이 뒤에 가짜 주소를 붙여 Firebase 이메일/비밀번호 로그인에 쓴다 (실제 메일은 오가지 않는다)
 const STAFF_MAIL_DOMAIN = 'staff.space-dust.com';
-const loginEmail = id => id + '@' + STAFF_MAIL_DOMAIN;
-const loginIdOf = em => { em = String(em || '').toLowerCase(); return em.endsWith('@' + STAFF_MAIL_DOMAIN) ? em.slice(0, -(STAFF_MAIL_DOMAIN.length + 1)) : ''; };
-const validLoginId = id => /^[a-z0-9][a-z0-9_-]{2,23}$/.test(id);
+const toHex = t => Array.from(new TextEncoder().encode(t), b => b.toString(16).padStart(2, '0')).join('');
+const fromHex = h => new TextDecoder().decode(Uint8Array.from(h.match(/../g), x => parseInt(x, 16)));
+// 영문 소문자·숫자·-·_ 만 있는 ID 는 그대로, 한글 등은 'u-' + 16진수로 바꿔 가짜 주소의 앞부분에 쓴다 (로그인할 때는 그냥 ID 를 입력)
+const loginEmail = id => (/^[a-z0-9][a-z0-9_-]*$/.test(id) && !id.startsWith('u-') ? id : 'u-' + toHex(id)) + '@' + STAFF_MAIL_DOMAIN;
+const loginIdOf = em => {
+  em = String(em || '').toLowerCase(); const sfx = '@' + STAFF_MAIL_DOMAIN;
+  if (!em.endsWith(sfx)) return '';
+  const l = em.slice(0, -sfx.length);
+  if (/^u-([0-9a-f]{2})+$/.test(l)) { try { return fromHex(l.slice(2)); } catch (e) { return ''; } }
+  return l;
+};
+// 입력한 ID 다듬기: 공백 제거·소문자, 전화번호 모양(010-1234-5678)은 하이픈을 뺀다
+const normLoginId = t => { t = String(t || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ''); return /^0\d{1,2}-\d{3,4}-\d{4}$/.test(t) ? t.replace(/-/g, '') : t; };
+const validLoginId = id => /^[a-z0-9가-힣_-]{2,20}$/.test(id) && loginEmail(id).split('@')[0].length <= 63;
+const ID_RULE = '글자(영문·한글)·숫자·-·_ 로 2~20자 — 숫자만(전화번호)도 됩니다';
 const isPwUser = u => !!(u && !u.isAnonymous && loginIdOf(u.email) && (u.providerData || []).some(x => x && x.providerId === 'password'));
+function genPwNum() { const a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, x => x % 10).join(''); }
 function genPw() { const A = 'abcdefghjkmnpqrstuvwxyz23456789', a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, x => A[x % A.length]).join(''); }
 const CH = { qr: 'QR 휴대폰' };
 function newIdAt(ts, rnd) { const o = kst(ts); const r = rnd ? rnd() : Math.random(); return o.month + o.day + '-' + o.hour + o.minute + '-' + Math.floor(r * 1296).toString(36).toUpperCase().padStart(2, '0'); }
@@ -2124,9 +2137,9 @@ function drawStaffAdm(main) {
       <div class="se-foot"><button type="button" class="b primary" data-act="staffQrPrint">담당자 앱 QR 인쇄 (A4)</button><button type="button" class="b" data-act="staffQrSave">그림으로 저장</button><button type="button" class="b" data-act="copyStaffUrl">주소 복사 (카톡으로 보내기)</button></div>
       <p class="hint" style="margin:8px 0 0">앱이 꺼져 있으면 알림이 오지 않습니다. 근무 중에는 켜 두세요.</p></section>
     <div class="set-grid">
-    <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="text" id="maLogin" placeholder="ID 또는 Google 이메일" required autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="로그인 ID 또는 Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
-      <p class="hint" style="margin:8px 0 0"><b>ID</b>(예: sykim)를 쓰면 비밀번호가 자동으로 만들어지고, 등록 직후 <b>한 번만</b> 보여 줍니다 — 바로 안내장을 인쇄하세요. <b>@가 들어가면 Google 계정</b>으로 등록합니다(관리자 계정도 여기 넣으면 담당자로 알림을 받습니다).</p></section>
-    <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, ID」 또는 「이름, Google 이메일」 — 역할을 붙이려면 「이름, ID, 시설」. ID 줄은 비밀번호를 자동으로 만들어 마지막에 한꺼번에 보여 줍니다. 이미 등록된 ID·이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, hong01&#10;김철수, cskim@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
+    <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="text" id="maLogin" placeholder="ID(전화번호도 가능) 또는 Google 이메일" required autocapitalize="off" autocomplete="off" spellcheck="false" aria-label="로그인 ID 또는 Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
+      <p class="hint" style="margin:8px 0 0"><b>ID</b>(예: 전화번호 01012345678, 이름, sykim)를 쓰면 비밀번호가 자동으로 만들어지고, 등록 직후 <b>한 번만</b> 보여 줍니다 — 바로 안내장을 인쇄하세요. <b>@가 들어가면 Google 계정</b>으로 등록합니다(관리자 계정도 여기 넣으면 담당자로 알림을 받습니다).</p></section>
+    <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, ID」(전화번호도 가능) 또는 「이름, Google 이메일」 — 역할을 붙이려면 「이름, ID, 시설」. ID 줄은 비밀번호를 자동으로 만들어 마지막에 한꺼번에 보여 줍니다. 이미 등록된 ID·이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, 01012345678&#10;김철수, cskim@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
     </div>`;
 }
 const newMemberId = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -2144,7 +2157,7 @@ async function addMember(name, email, role) {
   return 'ok';
 }
 // ---- ID/비밀번호 로그인 계정 (Firebase 이메일/비밀번호 + 가짜 주소). 비밀번호는 어디에도 저장하지 않는다. ----
-const PW_ERR = { 'auth/email-already-in-use': '이미 쓴 ID입니다 (지운 사람의 ID도 다시 쓸 수 없습니다). 다른 ID로 하세요', 'auth/operation-not-allowed': 'Firebase에서 「이메일/비밀번호」 로그인이 아직 켜져 있지 않습니다', 'auth/weak-password': '비밀번호가 너무 짧습니다 (8자 이상)', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '잠시 뒤에 다시 해 주세요' };
+const PW_ERR = { 'auth/email-already-in-use': '이미 쓴 ID입니다 (지운 사람의 ID도 다시 쓸 수 없습니다). 다른 ID로 하세요', 'auth/operation-not-allowed': 'Firebase에서 「이메일/비밀번호」 로그인이 아직 켜져 있지 않습니다', 'auth/weak-password': '비밀번호가 너무 짧습니다 (6자 이상)', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '잠시 뒤에 다시 해 주세요' };
 const pwErr = e => PW_ERR[errCode(e)] || ('실패 (' + errCode(e) + ')');
 // 관리자 본인의 로그인이 바뀌지 않도록, 별도 Firebase 앱 인스턴스로 계정을 만든다
 async function createLogin(id, pw) {
@@ -2154,7 +2167,7 @@ async function createLogin(id, pw) {
   finally { try { await a.signOut(); } catch (e) { /* 무시 */ } }
 }
 async function addPwMember(name, id, role, pw) {
-  name = String(name || '').trim().slice(0, 20); id = String(id || '').trim().toLowerCase();
+  name = String(name || '').trim().slice(0, 20); id = normLoginId(id);
   if (!name || !validLoginId(id)) return { r: 'bad' };
   const em = loginEmail(id);
   if (STAFF_ACL[em]) return { r: 'skip' };
@@ -2182,14 +2195,14 @@ async function setMemberLogin(m, id, pw) {
   STAFF_ACL[em] = { memberId: m.id, name: m.name, kind: 'pw' };
 }
 async function addMemberForm() {
-  const name = $('#maName').value, who = String($('#maLogin').value || '').trim().toLowerCase(), role = $('#maRole').value;
+  const name = $('#maName').value, who0 = String($('#maLogin').value || '').trim().toLowerCase(), role = $('#maRole').value, who = who0.includes('@') ? who0 : normLoginId(who0);
   if (who.includes('@')) {
     const r = await addMember(name, who, role).catch(e => 'err:' + errCode(e));
     if (r === 'ok') { toast('담당자를 추가했습니다'); $('#maName').value = ''; $('#maLogin').value = ''; }
     else toast(r === 'skip' ? '이미 등록된 이메일입니다' : r === 'bad' ? '이름과 이메일을 확인해 주세요' : '추가하지 못했습니다 (' + r.slice(4) + ')');
     return;
   }
-  if (!String(name).trim() || !validLoginId(who)) { toast('이름과 ID를 확인해 주세요 — ID는 영문 소문자·숫자·-·_ 로 3~24자'); return; }
+  if (!String(name).trim() || !validLoginId(who)) { toast('이름과 ID를 확인해 주세요 — ID는 ' + ID_RULE); return; }
   toast('계정을 만드는 중…');
   const r = await addPwMember(name, who, role);
   if (r.r === 'ok') { $('#maName').value = ''; $('#maLogin').value = ''; showCreds([r.cred]); }
@@ -2202,7 +2215,7 @@ async function addMembersBulk() {
   toast('등록하는 중…');
   for (const ln of lines) {
     const [name, who, role] = ln.split(/\s*[,\t]\s*/);
-    const w = String(who || '').trim().toLowerCase();
+    const w = String(who || '').includes('@') ? String(who).trim().toLowerCase() : normLoginId(who);
     let r;
     if (w.includes('@')) r = await addMember(name, w, (role || '').trim()).catch(() => 'err');
     else {
@@ -2246,13 +2259,13 @@ function openPwModal(mid) {
   const m = STAFF.find(x => x.id === mid); if (!m) return;
   const lg = memberLogins(mid), oldId = loginIdOf(lg.find(loginIdOf) || ''), gm = lg.find(k => !loginIdOf(k)) || '';
   let sug = '';
-  if (oldId) { const x = oldId.match(/^(.*?)(\d*)$/); sug = x[1] + (x[2] ? String(+x[2] + 1).padStart(x[2].length, '0') : 2); }
+  if (oldId) { const x = oldId.match(/^(.*?)(\d*)$/); sug = !x[1] ? oldId + '-2' : x[1] + (x[2] ? String(+x[2] + 1).padStart(x[2].length, '0') : 2); }
   else if (gm) sug = gm.split('@')[0].replace(/[^a-z0-9_-]/g, '');
   if (!validLoginId(sug)) sug = '';
   setModal(modalShell('pwT', oldId ? m.name + ' — 비밀번호 재발급' : m.name + ' — ID·비밀번호 만들기',
     `<p class="hint" style="margin:0 0 10px">${oldId ? `비밀번호를 잊었을 때 쓰는 기능입니다. <b>새 ID와 비밀번호</b>를 만들고, 예전 ID(<span class="mono">${esc(oldId)}</span>)로는 더 이상 로그인할 수 없게 됩니다. 접수 기록·구역은 그대로입니다.` : `Google 계정이 없는 직원이 ID와 비밀번호로 담당자 앱에 들어오게 합니다.${gm ? ' 기존 Google 로그인(' + esc(gm) + ')도 그대로 쓸 수 있습니다.' : ''}`}</p>
-     <label class="fld"><span class="lab">ID (영문 소문자·숫자·-·_ 3~24자)</span><input type="text" id="pwId" value="${esc(sug)}" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="24"></label>
-     <label class="fld" style="margin-top:10px"><span class="lab">비밀번호 (8자 이상 — 자동으로 만들었습니다)</span><span class="pw-row"><input type="text" id="pwPw" value="${genPw()}" autocomplete="off" spellcheck="false" maxlength="40"><button type="button" class="b" data-act="pwGen">다시 만들기</button></span></label>
+     <label class="fld"><span class="lab">ID (전화번호 같은 숫자만도 됩니다)</span><input type="text" id="pwId" value="${esc(sug)}" autocapitalize="off" autocomplete="off" spellcheck="false" maxlength="20"></label>
+     <label class="fld" style="margin-top:10px"><span class="lab">비밀번호 (6자 이상, 숫자만도 됩니다 — 자동으로 만들었습니다)</span><span class="pw-row"><input type="text" id="pwPw" value="${genPw()}" autocomplete="off" spellcheck="false" maxlength="40"><button type="button" class="b" data-act="pwGen">다시 만들기</button><button type="button" class="b" data-act="pwGenNum">숫자 8자리</button></span></label>
      <p class="gate-bad" id="pwErr" hidden></p>
      <p class="hint" style="margin:10px 0 0">비밀번호는 서버에 저장되지 않습니다. 만든 뒤 나오는 창에서 안내장을 인쇄하세요.</p>`,
     `<span class="grow"></span><button type="button" class="b" data-act="mClose">취소</button><button type="button" class="b primary" data-act="pwMake" data-mid="${esc(mid)}">${oldId ? '재발급' : '만들기'}</button>`));
@@ -2263,7 +2276,7 @@ function openAcct(view) {
   if (view === 'pw') {
     setModal(modalShell('acT', '비밀번호 바꾸기',
       `<label class="fld"><span class="lab">지금 비밀번호</span><input type="password" id="pcCur" autocomplete="current-password"></label>
-       <label class="fld" style="margin-top:10px"><span class="lab">새 비밀번호 (8자 이상)</span><input type="password" id="pcNew" autocomplete="new-password"></label>
+       <label class="fld" style="margin-top:10px"><span class="lab">새 비밀번호 (6자 이상, 숫자만도 됩니다)</span><input type="password" id="pcNew" autocomplete="new-password"></label>
        <label class="fld" style="margin-top:10px"><span class="lab">새 비밀번호 한 번 더</span><input type="password" id="pcNew2" autocomplete="new-password"></label>
        <p class="gate-bad" id="pcErr" hidden></p>`,
       `<span class="grow"></span><button type="button" class="b" data-act="mClose">취소</button><button type="button" class="b primary" data-act="pcSave">바꾸기</button>`));
@@ -2279,13 +2292,15 @@ async function onModalClick(e) {
   if (a === 'mClose') closeModal();
   else if (a === 'logout') { closeModal(true); }
   else if (a === 'pwGen') { const i = $('#pwPw'); if (i) i.value = genPw(); }
+  else if (a === 'pwGenNum') { const i = $('#pwPw'); if (i) i.value = genPwNum(); }
   else if (a === 'credCopy') { const t = CREDS.map(c => `${c.name}\nID: ${c.id}\n비밀번호: ${c.pw}`).join('\n\n') + '\n\n담당자 앱: ' + STAFF_URL; const ok = await copyText(t); if (ok) CREDS_SAVED = true; toast(ok ? '복사했습니다. 비밀번호가 들어 있으니 한 사람에게만 보내세요.' : '복사하지 못했습니다'); }
   else if (a === 'credPrint') { CREDS_SAVED = true; printStaffGuide(CREDS); }
   else if (a === 'pwMake') {
     const m = STAFF.find(x => x.id === b.dataset.mid); if (!m) return;
-    const id = String($('#pwId').value || '').trim().toLowerCase(), pw = String($('#pwPw').value || ''), er = $('#pwErr');
-    const bad = !validLoginId(id) ? 'ID는 영문 소문자·숫자·-·_ 로 3~24자(첫 글자는 영문·숫자)입니다' : pw.length < 8 ? '비밀번호는 8자 이상입니다' : STAFF_ACL[loginEmail(id)] ? '이미 등록된 ID입니다' : '';
+    const id = normLoginId($('#pwId').value), pw = String($('#pwPw').value || ''), er = $('#pwErr');
+    const bad = !validLoginId(id) ? 'ID는 ' + ID_RULE + '입니다' : pw.length < 6 ? '비밀번호는 6자 이상입니다' : STAFF_ACL[loginEmail(id)] ? '이미 등록된 ID입니다' : '';
     er.textContent = bad; er.hidden = !bad; if (bad) return;
+    if (pw === id && !await askConfirm('ID와 같은 비밀번호는 누구나 추측할 수 있습니다. 그래도 만들까요?', '그래도 만들기')) return;
     b.disabled = true; b.textContent = '만드는 중…';
     try { await setMemberLogin(m, id, pw); }
     catch (err) { er.textContent = pwErr(err); er.hidden = false; b.disabled = false; b.textContent = '다시 시도'; return; }
@@ -2294,7 +2309,7 @@ async function onModalClick(e) {
   else if (a === 'pcOpen') openAcct('pw');
   else if (a === 'pcSave') {
     const cur = $('#pcCur').value, n1 = $('#pcNew').value, n2 = $('#pcNew2').value, er = $('#pcErr');
-    const bad = !cur ? '지금 비밀번호를 넣어 주세요' : n1.length < 8 ? '새 비밀번호는 8자 이상입니다' : n1 !== n2 ? '새 비밀번호가 서로 다릅니다' : n1 === cur ? '지금 비밀번호와 다르게 정해 주세요' : '';
+    const bad = !cur ? '지금 비밀번호를 넣어 주세요' : n1.length < 6 ? '새 비밀번호는 6자 이상입니다' : n1 !== n2 ? '새 비밀번호가 서로 다릅니다' : n1 === cur ? '지금 비밀번호와 다르게 정해 주세요' : '';
     er.textContent = bad; er.hidden = !bad; if (bad) return;
     b.disabled = true;
     try {
@@ -2881,8 +2896,8 @@ function gateHTML(kind) {
   const title = kind === 'admin' ? '관리자 로그인' : '담당자 로그인', who = kind === 'admin' ? '관리자' : '담당자';
   const denied = google ? (pw ? `<p class="gate-bad">ID ${esc(loginIdOf(u.email))} 는 ${who}로 등록돼 있지 않습니다. 관리자에게 알려 주세요.</p>` : `<p class="gate-bad">${esc(u.email || '')} 계정은 ${who}로 등록돼 있지 않습니다.${kind === 'staff' ? ' 관리자에게 이 이메일을 알려 주세요.' : ''}</p>`) : '';
   const head = `<div class="brand"><span class="logo">SPACE</span><div style="text-align:left"><b>화장실 불편접수</b><small>판 ${BUILD}</small></div></div><h2>${title}</h2>`;
-  if (kind === 'staff') return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">관리자에게 받은 ID와 비밀번호로 로그인합니다.</p>${denied}
-    <form id="pwLogin" class="gate-form"><label class="fld"><span class="lab">ID</span><input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="24"></label><label class="fld"><span class="lab">비밀번호</span><input type="password" id="lgPw" name="password" autocomplete="current-password" maxlength="40"></label><p class="gate-bad" id="lgErr" hidden></p><button type="submit" class="b primary gate-btn">로그인</button></form>
+  if (kind === 'staff') return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">관리자에게 받은 ID(전화번호 등)와 비밀번호로 로그인합니다.</p>${denied}
+    <form id="pwLogin" class="gate-form"><label class="fld"><span class="lab">ID</span><input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="20"></label><label class="fld"><span class="lab">비밀번호</span><input type="password" id="lgPw" name="password" autocomplete="current-password" maxlength="40"></label><p class="gate-bad" id="lgErr" hidden></p><button type="submit" class="b primary gate-btn">로그인</button></form>
     <div class="gate-or"><span>Google 계정이 있다면</span></div><button type="button" class="b gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
   return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">등록된 Google 계정으로 로그인합니다.</p>${denied}<button type="button" class="b primary gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
 }
@@ -2890,7 +2905,7 @@ const LOGIN_ERR = { 'auth/invalid-credential': 'ID 또는 비밀번호가 맞지
 document.addEventListener('submit', async e => {
   if (!e.target || e.target.id !== 'pwLogin') return;
   e.preventDefault();
-  const id = e.target.querySelector('#lgId').value.trim().toLowerCase(), pw = e.target.querySelector('#lgPw').value;
+  const id = normLoginId(e.target.querySelector('#lgId').value), pw = e.target.querySelector('#lgPw').value;
   const er = e.target.querySelector('#lgErr'), btn = e.target.querySelector('button[type="submit"]');
   const show = m => { er.textContent = m; er.hidden = !m; };
   if (!id || !pw) { show('ID와 비밀번호를 넣어 주세요'); return; }
