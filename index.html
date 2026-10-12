@@ -18,6 +18,9 @@
   var m = document.getElementById('appManifest'), t = document.getElementById('appTouch'), n = document.getElementById('appTitle');
   if (!k) { m.parentNode.removeChild(m); t.parentNode.removeChild(t); return; }
   m.href = k + '.webmanifest'; t.href = 'icons/' + k + '-180.png';
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); window.__bip = e; document.dispatchEvent(new Event('bip-ready')); });
+  window.addEventListener('appinstalled', function () { window.__bip = null; document.dispatchEvent(new Event('bip-ready')); });
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
   n.content = k === 'staff' ? '화장실 담당' : '화장실 관리';
   document.title = k === 'staff' ? '화장실 담당자' : '화장실 관리';
 })();
@@ -613,6 +616,12 @@ body.fullmode main{padding:0}
   .pp-foot{grid-column:1/-1;margin:0;font:9pt sans-serif;color:#5C6674;text-align:center}
 }
 @media (max-width:720px){.se-grid{grid-template-columns:1fr}}
+.inst{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.inst-qr{width:146px;height:146px;flex-shrink:0}
+.inst-qr img,.inst-qr canvas{width:132px!important;height:132px!important}
+.inst-steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:13.5px;line-height:1.5}
+.ios-guide{max-width:380px}
+.inst-btn{white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1024,7 +1033,7 @@ body.fullmode main{padding:0}
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20260928-1935';
+const BUILD = '20261012-1010';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1254,7 +1263,8 @@ const catOf = t => t.toFac ? 'fac' : (t.emergency ? 'clean' : issueDef(t.issue).
 function zoneStaff(room, cat) {
   if (!room) return NOBODY;
   const want = cat === 'fac' ? '시설' : '청소';
-  const c = STAFF.filter(m => m.role === want && covers(m, room));
+  let c = STAFF.filter(m => m.role === want && covers(m, room));
+  if (!c.length) c = STAFF.filter(m => covers(m, room));
   return c.length === 1 ? c[0] : NOBODY;
 }
 const isOpen = t => t.status === 'new' || t.status === 'going';
@@ -1262,7 +1272,7 @@ function isOver(t) { if (t.status === 'cancel') return false; const end = t.stat
 const isToday = t => kstDay(t.createdAt) === kstDate();
 const todays = () => TICKETS.filter(t => t.status !== 'cancel' && isToday(t));
 const qrURL = roomId => BASE_URL + '#r-' + roomId.toLowerCase();
-const STAFF_URL = BASE_URL + '#staff';
+const STAFF_URL = BASE_URL + '?app=staff';
 const CH = { qr: 'QR 휴대폰' };
 function newIdAt(ts, rnd) { const o = kst(ts); const r = rnd ? rnd() : Math.random(); return o.month + o.day + '-' + o.hour + o.minute + '-' + Math.floor(r * 1296).toString(36).toUpperCase().padStart(2, '0'); }
 const photoSrc = p => { if (!p) return ''; if (p.pid) { if (PHOTO_CACHE[p.pid]) return PHOTO_CACHE[p.pid]; loadPhoto(p.pid); return BLANK; } return p.data || p.url || ''; };
@@ -1668,7 +1678,7 @@ function mountStaff(el, ctx) {
     const { me, wait, mine, done } = staffLists();
     el.querySelector('.st-head').innerHTML = `${ctx.full ? '' : `<div class="sbar" style="padding-inline:12px"><span>${hm(Date.now())}</span><span>5G</span></div>`}
       <div class="st-who"><div class="st-avatar">${esc((me.name || '?')[0])}</div><div>${AUTH.role === 'admin' ? `<select data-in="staff" aria-label="누구로 볼지 고르기"><option value="" ${me.id ? '' : 'selected'}>관리자 (전체 보기)</option>${STAFF.map(s => `<option value="${s.id}" ${s.id === me.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select>` : `<b class="st-name">${esc(me.id ? me.name : (AUTH.email || '담당자'))}</b>`}<div class="st-zone">${me.id ? esc(me.role) + ' · ' + esc(me.zoneLabel) : '모든 현장 · 전 층'}</div></div><span class="duty">근무 중</span></div>
-      <div class="st-tools"><button type="button" class="chipbtn" data-scope="zone" aria-pressed="${SS.scope === 'zone'}">내 구역</button><button type="button" class="chipbtn" data-scope="all" aria-pressed="${SS.scope === 'all'}">전체</button><button type="button" class="chipbtn${SS.sound ? ' on' : ''}" data-act="sound">${svg('bell')}${SS.sound ? '알림음 켜짐' : '알림음 켜기'}</button></div>`;
+      <div class="st-tools"><button type="button" class="chipbtn" data-scope="zone" aria-pressed="${SS.scope === 'zone'}">내 구역</button><button type="button" class="chipbtn" data-scope="all" aria-pressed="${SS.scope === 'all'}">전체</button><button type="button" class="chipbtn${SS.sound ? ' on' : ''}" data-act="sound">${svg('bell')}${SS.sound ? '알림음 켜짐' : '알림음 켜기'}</button>${ctx.full ? installBtn('chipbtn') : ''}</div>`;
     GROUPS.sttabs = ST_KEYS;
     const n = { wait: wait.length, mine: mine.length, done: done.length };
     el.querySelector('.st-tabs').innerHTML = ordered(ST_KEYS).map(k => { const tab = k.slice(8); return `<div class="st-tab${hidCls(k)}"><button type="button" role="tab" data-tab="${tab}" aria-selected="${SS.tab === tab}">${esc(L(k))}<span class="n">${n[tab]}</span></button>${pen(k, 'sttabs')}</div>`; }).join('');
@@ -2083,11 +2093,16 @@ function drawStaffAdm(main) {
     ${STAFF.map(m => { const mine = todays().filter(t => t.staffId === m.id), done = mine.filter(t => t.status === 'done').length, now = mine.filter(t => t.status === 'going').length, site0 = (m.sites || [])[0] || ''; return `<tr data-mid="${esc(m.id)}"><td><b>${esc(m.name)}</b></td><td class="mono">${esc(memberEmail(m.id) || '—')}</td><td><select data-mf="role" aria-label="역할"><option value="청소" ${m.role !== '시설' ? 'selected' : ''}>청소</option><option value="시설" ${m.role === '시설' ? 'selected' : ''}>시설</option></select></td><td><select data-mf="site" aria-label="현장"><option value="">모든 현장</option>${SITES.map(st => `<option value="${esc(st.id)}" ${site0 === st.id ? 'selected' : ''}>${esc(st.name)}</option>`).join('')}</select></td><td><div class="fl-chips">${siteFloors(site0).map(f => `<label class="fl-chip"><input type="checkbox" data-mf="floor" value="${f}" ${(m.floors || []).includes(f) ? 'checked' : ''}>${f}</label>`).join('') || '<span class="hint">—</span>'}</div></td><td class="mono">${done}</td><td class="mono">${now}</td><td><button type="button" class="b danger" data-act="memDel">빼기</button></td></tr>`; }).join('') || '<tr><td colspan="8" class="hint" style="padding:14px">아직 없습니다. 아래에서 추가하세요.</td></tr>'}
     </tbody></table></div>
     ${noLogin.length ? `<p class="hint" style="margin:8px 0 0">이름 없이 로그인만 허용된 계정: ${noLogin.map(k => `<span class="mono">${esc(k)}</span> <button type="button" class="b danger" data-act="aclDel" data-email="${esc(k)}">빼기</button>`).join(' · ')}</p>` : ''}</section>
+    <section class="card"><h3>담당자 휴대폰에 앱 깔기</h3><div class="inst"><div class="qrbox inst-qr" id="staffAppQR"></div><div>
+      <ol class="inst-steps"><li>휴대폰 카메라로 이 QR을 찍어 엽니다 (아이폰은 사파리로)</li><li>회사 Google 계정으로 로그인합니다 — 위 목록에 있는 계정만 들어옵니다</li><li>안드로이드: 위쪽 <b>「앱으로 설치」</b> → 「설치」 · 아이폰: 공유 버튼 → <b>「홈 화면에 추가」</b></li><li>홈 화면의 노란 <b>「담당」</b> 아이콘으로 열고 <b>「알림음 켜기」</b>를 누릅니다</li></ol>
+      <div class="se-foot"><button type="button" class="b primary" data-act="copyStaffUrl">주소 복사 (카톡으로 보내기)</button></div>
+      <p class="hint" style="margin:6px 0 0">앱이 꺼져 있으면 알림이 오지 않습니다. 근무 중에는 켜 두세요.</p></div></div></section>
     <div class="set-grid">
     <section class="card"><h3>한 명 추가</h3><form class="add-issue" id="memAdd"><input type="text" id="maName" maxlength="20" placeholder="이름" required aria-label="이름"><input type="email" id="maEmail" placeholder="Google 이메일" required aria-label="Google 이메일"><select id="maRole" aria-label="역할"><option value="청소">청소</option><option value="시설">시설</option></select><button type="submit" class="b primary">추가</button></form>
       <p class="hint" style="margin:8px 0 0">추가한 사람은 담당자 앱 주소에서 이 Google 계정으로 로그인하면 바로 들어옵니다. 관리자 계정도 여기 넣으면 담당자로 알림을 받습니다.</p></section>
     <section class="card"><h3>여러 명 한 번에</h3><p class="hint" style="margin:0 0 8px">한 줄에 한 명씩 「이름, 이메일」 — 역할을 붙이려면 「이름, 이메일, 시설」. 이미 등록된 이메일은 건너뜁니다.</p><textarea id="memBulk" rows="6" placeholder="홍길동, gildong@space-dust.com">${esc(AS.bulk || '')}</textarea><div class="se-foot"><span class="grow"></span><button type="button" class="b primary" data-act="memBulk">한 번에 등록</button></div></section>
     </div>`;
+  renderQRCode($('#staffAppQR', main), STAFF_URL, 132);
 }
 async function addMember(name, email, role) {
   name = String(name || '').trim().slice(0, 20); email = String(email || '').trim().toLowerCase();
@@ -2648,7 +2663,7 @@ function applyRoleUI() {
   if (!admin && S.editing) setEditing(false);
   $('#fab').hidden = !(S.full && admin);
   const a = $('#acct'), u = AUTH.user;
-  if (a) a.innerHTML = u && !u.isAnonymous ? `<span title="${esc(u.email || '')}">${esc(u.email || '')}</span><button type="button" class="b" data-act="logout">로그아웃</button>` : '';
+  if (a) a.innerHTML = u && !u.isAnonymous ? `${admin ? installBtn('b accent') : ''}<span title="${esc(u.email || '')}">${esc(u.email || '')}</span><button type="button" class="b" data-act="logout">로그아웃</button>` : '';
 }
 async function doLogin() {
   const p = new firebase.auth.GoogleAuthProvider();
@@ -2661,16 +2676,74 @@ async function doLogin() {
   }
 }
 async function doLogout() { try { await AUTHX.signOut(); } catch (e) { /* 무시 */ } }
+/* ---------- 앱으로 설치 (바탕화면·홈 화면 아이콘) ---------- */
+const isStandalone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch (e) { return false; } };
+const isIOS = () => /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+function installBtn(cls) { if (isStandalone() || !(window.__bip || isIOS())) return ''; return `<button type="button" class="${cls} inst-btn" data-act="install">앱으로 설치</button>`; }
+function refreshInstall() { applyRoleUI(); if (SS.el && document.body.contains(SS.el) && SS.draw) SS.draw(); }
+document.addEventListener('bip-ready', refreshInstall);
+function showIosGuide() {
+  const root = $('#modalRoot');
+  root.innerHTML = `<div class="overlay"><div class="modal ios-guide" role="dialog" aria-modal="true" aria-labelledby="iosT" data-sp-popup><header><b id="iosT">아이폰에서 아이콘 만들기</b><button type="button" class="x" data-act="iosClose" aria-label="닫기">✕</button></header><div class="modal-body" style="display:block"><ol class="inst-steps"><li>사파리 아래쪽 가운데 <b>공유 버튼</b>(네모에 위 화살표)을 누릅니다</li><li>목록을 올려 <b>「홈 화면에 추가」</b>를 누릅니다</li><li>오른쪽 위 <b>「추가」</b>를 누르면 홈 화면에 아이콘이 생깁니다</li></ol><p class="hint" style="margin:8px 0 0">크롬 앱이 아니라 <b>사파리</b>로 열어야 합니다.</p></div><footer><span class="grow"></span><button type="button" class="b primary" data-act="iosClose">확인</button></footer></div></div>`;
+  root.querySelector('.overlay').onclick = e => { if (e.target.classList.contains('overlay') || e.target.closest('[data-act="iosClose"]')) root.innerHTML = ''; };
+}
+async function doInstall() {
+  const p = window.__bip;
+  if (p) {
+    try { p.prompt(); const r = await p.userChoice; if (r && r.outcome === 'accepted') { window.__bip = null; toast('설치했습니다. 바탕화면·홈 화면의 아이콘으로 여세요.'); } }
+    catch (e) { toast('설치 창을 열지 못했습니다. 브라우저 메뉴(⋮)의 「앱 설치」를 눌러 주세요.'); }
+    refreshInstall(); return;
+  }
+  if (isIOS()) { showIosGuide(); return; }
+  toast('브라우저 메뉴(⋮)에서 「앱 설치」 또는 「홈 화면에 추가」를 눌러 주세요');
+}
+async function copyText(t) {
+  try { await navigator.clipboard.writeText(t); return true; } catch (e) { /* 아래로 */ }
+  try { const i = document.createElement('textarea'); i.value = t; i.style.position = 'fixed'; i.style.opacity = '0'; document.body.appendChild(i); i.select(); const ok = document.execCommand('copy'); i.remove(); return ok; } catch (e) { return false; }
+}
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-act="login"],[data-act="logout"]'); if (!b) return;
+  const b = e.target.closest('[data-act="login"],[data-act="logout"],[data-act="install"],[data-act="copyStaffUrl"]'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
-  if (b.dataset.act === 'login') doLogin(); else doLogout();
+  const a = b.dataset.act;
+  if (a === 'login') doLogin();
+  else if (a === 'logout') doLogout();
+  else if (a === 'install') doInstall();
+  else copyText(STAFF_URL).then(ok => toast(ok ? '담당자 앱 주소를 복사했습니다. 카톡 등에 붙여 보내세요.' : '복사하지 못했습니다. 주소: ' + STAFF_URL));
 }, true);
 
 let UNSUBS = [];
 const TRACKED = {}, TRACK_UNSUB = {};
 let CUST_MERGE = null;
 let MEMBERS_RAW = [];
+/* ---------- 처음 설정: 스페이스학운공장 · 담당자 조현행 (2026-10-12 대표 지시) ----------
+   관리자 화면을 처음 열 때 한 번 만든다(config/seed 가 있으면 다시 만들지 않음 — 나중에 고치거나 지워도 되살리지 않는다).
+   대표 계정(관리자)으로 들어오면 그 계정을 담당자 조현행에 연결해, 담당자 앱이 「조현행」으로 열린다. */
+const SEED_SITE = { id: 'S01', name: '스페이스학운공장', address: '경기도 김포시 양촌읍 학운산단5로라길 31',
+  rooms: [['1F', 'M', 4, 4], ['1F', 'W', 2, 0], ['2F', 'M', 2, 3], ['2F', 'W', 1, 0]] };
+const OWNER_ID = 'mOwner';
+let MEMBERS_READY = false, SEEDING = false, SEED_CHECKED = false;
+async function ensureSeed() {
+  if (AUTH.role !== 'admin' || !SITES_READY || !MEMBERS_READY || SEEDING || SEED_CHECKED) return;
+  SEEDING = true;
+  try {
+    const flag = await DB.doc('config/seed').get();
+    if (!flag.exists) {
+      if (!SITES.length) {
+        const rooms = SEED_SITE.rooms.map(([floor, type, stalls, urinals]) => ({ id: `${SEED_SITE.id}-${floor}-${type}1`, floor, type, n: 1, stalls, urinals }));
+        await DB.doc('sites/' + SEED_SITE.id).set({ id: SEED_SITE.id, name: SEED_SITE.name, address: SEED_SITE.address, rooms, roomIds: rooms.map(r => r.id), order: 0, at: Date.now(), by: 'seed' });
+      }
+      if (!MEMBERS_RAW.some(m => m.owner)) await DB.doc('members/' + OWNER_ID).set({ id: OWNER_ID, name: '조현행', role: '청소', sites: [], floors: [], owner: true, order: 0, at: Date.now() });
+      await DB.doc('config/seed').set({ at: Date.now(), by: AUTH.email, site: SEED_SITE.id, owner: OWNER_ID });
+    }
+    const owner = MEMBERS_RAW.find(m => m.owner) || (flag.exists ? null : { id: OWNER_ID });
+    if (owner && !AUTH.memberId && AUTH.email) {
+      await DB.doc('staff/' + AUTH.email).set({ memberId: owner.id, name: owner.name || '조현행', at: Date.now(), by: 'seed' });
+      AUTH.memberId = owner.id;
+      if (!SS.staffId) { SS.staffId = owner.id; if (SS.draw) SS.draw(); }
+    }
+  } catch (e) { toast('처음 설정을 만들지 못했습니다 (' + errCode(e) + ')'); }
+  SEED_CHECKED = true; SEEDING = false;
+}
 function onSitesChanged() {
   if (S.full === 'customer') { if (!QS.el || !document.body.contains(QS.el)) render(); else if (QS.draw) QS.draw(); return; }
   if (S.full === 'staff') { if (SS.el && document.body.contains(SS.el) && SS.draw) SS.draw(); else render(); return; }
@@ -2688,11 +2761,11 @@ function trackTicket(id) {
   UNSUBS.push(TRACK_UNSUB[id]);
 }
 function startSubs() {
-  unsubAll(); DATA_READY = false; TICKETS = [];
+  unsubAll(); DATA_READY = false; TICKETS = []; MEMBERS_READY = false; SEED_CHECKED = false;
   UNSUBS.push(DB.collection('sites').onSnapshot(q => {
     SITES = q.docs.map(d => Object.assign({ id: d.id }, d.data())); rebuildRooms(); SITES_READY = true;
     if (MEMBERS_RAW.length) setMembers(MEMBERS_RAW);
-    onSitesChanged();
+    onSitesChanged(); ensureSeed();
   }, e => { SITES_READY = true; toast('현장 정보를 불러오지 못했습니다 (' + errCode(e) + ')'); render(); }));
   UNSUBS.push(DB.doc('config/ops').onSnapshot(s => { applyOps(s.exists ? s.data() : null); dispatch([]); if (S.view === 'admin' && AS.sub === 'settings' && AS.el && !S.full) drawAdmMain(); }, () => {}));
   UNSUBS.push(DB.doc('config/ui').onSnapshot(s => {
@@ -2706,7 +2779,7 @@ function startSubs() {
       const ev = DATA_READY ? diffEvents(TICKETS, next) : [];
       TICKETS = next; DATA_READY = true; dispatch(ev);
     }, e => toast('접수 기록을 불러오지 못했습니다 (' + errCode(e) + ')')));
-    UNSUBS.push(DB.collection('members').onSnapshot(q => { MEMBERS_RAW = q.docs.map(d => Object.assign({ id: d.id }, d.data())); setMembers(MEMBERS_RAW); onMembersChanged(); }, () => {}));
+    UNSUBS.push(DB.collection('members').onSnapshot(q => { MEMBERS_RAW = q.docs.map(d => Object.assign({ id: d.id }, d.data())); MEMBERS_READY = true; setMembers(MEMBERS_RAW); onMembersChanged(); ensureSeed(); }, () => {}));
     UNSUBS.push(DB.collection('feedback').onSnapshot(q => {
       const f = {}, day = kstDate();
       q.docs.forEach(d => { const x = d.data(); if (x.day === day) f[x.roomId] = x.n || 0; });
