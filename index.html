@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261013-1831';
+const BUILD = '20261013-1838';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1453,7 +1453,7 @@ const DL = { async save({ filename, data }) {
 } };
 let STORE = 'wait';
 // role(옛 필드)의 의미는 그대로. tier/world/tid/siteIds/kind/emailVerified 는 2-B 에서 더했다(카드 2.1)
-const AUTH = { ready: false, user: null, role: 'none', email: '', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', tenantName: '', emailVerified: false, reason: '', retry: false };
+const AUTH = { ready: false, user: null, role: 'none', email: '', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', tenantName: '', tenantActive: true, emailVerified: false, reason: '', retry: false };
 const TENANT_UI_READY = false;   // 새 세계 화면(2-D)이 준비되면 켠다. 그 전에는 새 세계 사용자(HQ·SM·ST)가 「준비 중」과 로그아웃만 본다
 let AUTH_WAIT = [];
 const waitAuth = () => AUTH.user ? Promise.resolve() : new Promise((res, rej) => { AUTH_WAIT.push(res); setTimeout(() => rej({ code: 'auth-timeout' }), 12000); });
@@ -2334,6 +2334,8 @@ const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;                                  // 규
 const normMail = s => String(s == null ? '' : s).trim().toLowerCase();
 const isRealMail = e => MAIL_RE.test(e) && !e.endsWith('@' + STAFF_MAIL_DOMAIN);
 const MAIL_BATCH = 5;                                                     // 규칙의 호출 한도(감사 F10) 때문에 실제 이메일 담당자는 한 배치에 5명 이하
+const HQ_EMAIL_IN_USE = '이 이메일은 이미 가입돼 있어 지정하지 않았습니다. 본인 계정이 아닐 수 있어 안전을 위해 멈췄습니다. Firebase 콘솔 → Authentication → 사용자에서 이 이메일의 주인을 먼저 확인하세요. 아무도 쓰지 않는 계정이 확실할 때만 삭제하고 다시 지정하고, 이미 다른 고객사 관리자나 운영자 계정이면 삭제하지 말고 다른 이메일을 쓰세요.';   // 그 계정이 인증됐는지·누구 것인지는 알리지 않는다(감사 F-1)
+const HQ_CLEANUP_LEFT = '계정이 남았을 수 있습니다 — 같은 이메일로 다시 지정하려면 콘솔에서 먼저 확인하세요';   // 4 단계 실패 뒤 방금 만든 계정을 지우지 못한 경우에만 덧붙인다
 function genStrongPw() {                                                  // 24자: 대·소문자·숫자·기호를 모두 포함, crypto.getRandomValues
   const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%^&*-_=+'], all = sets.join('');
   const r = new Uint32Array(24), j = new Uint32Array(24); crypto.getRandomValues(r); crypto.getRandomValues(j);
@@ -2597,8 +2599,8 @@ async function onModalClick(e) {
 const TN = { list: null, loading: false, err: '', counter: undefined, cerr: '', busy: false, st: {} };
 const TN_RANGE = { sites: [0, 10000, 10, '현장 수 한도'], staff: [0, 100000, 100, '담당자 수 한도'], retentionDays: [1, 3650, 365, '보관 일수'] };   // [최소, 최대, 기본값, 이름] — 규칙 limitsOk 와 같은 범위
 const HQ_DENIED = '지정하지 못했습니다. 이 고객사에 이미 본사 관리자가 있거나, 이 이메일이 이미 다른 고객사에 등록돼 있거나, 운영자 이메일일 수 있습니다. 추가 본사 관리자는 본사 관리자가 만듭니다';   // 원인을 가르지 않는다(앱은 미리 확인할 수 없다)
-const HQ_EMAIL_IN_USE = '이 이메일은 이미 가입돼 있어 지정하지 않았습니다. 본인 계정이 아닐 수 있어 안전을 위해 멈췄습니다. Firebase 콘솔 → Authentication → 사용자에서 이 이메일의 주인을 먼저 확인하세요. 아무도 쓰지 않는 계정이 확실할 때만 삭제하고 다시 지정하고, 이미 다른 고객사 관리자나 운영자 계정이면 삭제하지 말고 다른 이메일을 쓰세요.';   // 그 계정이 인증됐는지·누구 것인지는 알리지 않는다(감사 F-1)
-const HQ_CLEANUP_LEFT = '계정이 남았을 수 있습니다 — 같은 이메일로 다시 지정하려면 콘솔에서 먼저 확인하세요';   // 4 단계 실패 뒤 방금 만든 계정을 지우지 못한 경우에만 덧붙인다
+const TN_SUSPEND_MSG = '정지하면 이 고객사의 이용객 접수가 막히고, 본사·현장·담당자는 로그인해도 「서비스 중지」 안내만 보게 됩니다. 데이터는 그대로 남고, 언제든 해제할 수 있습니다.';   // 카드 6항 ③ ㉠ (정지 = 서비스 전면 중지)
+const TN_RESUME_MSG = '해제하면 이 고객사의 사용이 다시 시작됩니다.';
 const HQ_AUTH_ERR = { 'auth/operation-not-allowed': '이메일/비밀번호 로그인이 아직 켜지지 않았습니다. Firebase 콘솔에서 켜 주세요', 'auth/invalid-email': '이메일 형식을 확인해 주세요', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/too-many-requests': '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요' };
 const tnDay = ms => { if (!ms) return '—'; const d = kstDay(+ms); return d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8); };
 const tnOn = () => S.view === 'admin' && AS.sub === 'tenants' && AS.el && document.body.contains(AS.el);
@@ -2649,7 +2651,7 @@ async function createTenant() {
 }
 async function setTenantStatus(tid, status) {
   const t = (TN.list || []).find(x => x.id === tid); if (!t || TN.busy) return;
-  if (status === 'suspended' && !await askConfirm('‘' + t.name + '’ 고객사를 정지할까요? 상태만 「정지」로 바뀌고 데이터는 그대로 남습니다. 언제든 해제할 수 있습니다.', '정지')) return;
+  if (!await askConfirm(status === 'suspended' ? '‘' + t.name + '’ 고객사를 정지할까요? ' + TN_SUSPEND_MSG : '‘' + t.name + '’ 고객사의 정지를 해제할까요? ' + TN_RESUME_MSG, status === 'suspended' ? '정지' : '해제')) return;
   TN.busy = true;
   try { await P.as('tenant').tenantDoc(tid).update({ status }); t.status = status; toast(status === 'suspended' ? '정지했습니다' : '해제했습니다'); }
   catch (e) { toast('바꾸지 못했습니다 (' + errCode(e) + ')'); }
@@ -3312,6 +3314,10 @@ function notReadyHTML() {                                                 // 새
   const who = AUTH.tier === 'HQ' ? '본사 관리자' : AUTH.tier === 'SM' ? '현장 관리자' : '담당자';
   return specialCard(title, `<p class="hint" style="margin:0">고객사 <b>${esc(AUTH.tenantName || AUTH.tid)}</b> · 내 역할 <b>${esc(who)}</b></p><p class="hint" style="margin:0">곧 사용하실 수 있습니다.</p>`, '<button type="button" class="b gate-btn" data-act="logout">로그아웃</button>');
 }
+function stoppedHTML() {                                                  // 정지된 고객사(status 가 active 가 아니거나 읽을 수 없음)의 HQ·SM·ST: 「준비 중」 대신 정지 안내와 로그아웃만 (카드 6항 ③, 결정 30)
+  const nm = AUTH.tenantName ? `<p class="hint" style="margin:0">고객사 <b>${esc(AUTH.tenantName)}</b></p>` : '';
+  return specialCard('서비스 중지', `${nm}<p class="hint" style="margin:0">서비스가 중지된 상태입니다. 자세한 내용은 서비스 제공 업체에 문의해 주세요.</p>`, '<button type="button" class="b gate-btn" data-act="logout">로그아웃</button>');
+}
 function verifyHTML() {                                                   // 이메일 미인증(규칙 verified() 가 관리자급의 전제)
   return specialCard('이메일 인증이 필요합니다',
     `<p class="hint" style="margin:0">${esc(AUTH.email)} 로 보낸 메일의 링크를 눌러 인증한 뒤 「인증했어요」를 눌러 주세요. 메일이 보이지 않으면 스팸함도 확인해 주세요.</p><p class="gate-msg" id="verMsg" role="status" hidden></p>`,
@@ -3322,6 +3328,7 @@ const conflictHTML = () => specialCard('다시 로그인해 주세요', '<p clas
 function specialHTML() {                                                  // 판정 결과가 「화면 대신 안내」인 경우. 이용객 접수 화면(QR)은 지금까지처럼 둔다
   const u = AUTH.user;
   if (!AUTH.ready || !u || u.isAnonymous) return '';
+  if (AUTH.world === 'tenant' && !AUTH.tenantActive) return stoppedHTML();   // 정지(전면 중지) 안내가 먼저 — 이용객 접수 주소(#r-…)를 열어도 같다
   if (AUTH.world === 'tenant' && !TENANT_UI_READY) return notReadyHTML();
   if (S.full === 'customer') return '';
   if (AUTH.retry) return retryHTML();
@@ -3555,12 +3562,14 @@ async function readDoc(ref) {
   try { const d = await ref.get(); return { exists: !!d.exists, data: d.exists ? (d.data() || {}) : null, denied: false }; }
   catch (e) { if (isPermDenied(e)) return { exists: false, data: null, denied: true }; throw e; }
 }
-async function tenantNameOf(tid) {                                    // 준비 중 화면용: 읽지 못해도 판정은 그대로(이름만 비움)
-  try { const r = await readDoc(P.as('tenant', tid).tenantDoc(tid)); return r.exists && typeof r.data.name === 'string' ? r.data.name.slice(0, 60) : ''; } catch (e) { return ''; }
+async function tenantStateOf(tid) {                                   // 준비 중·정지 안내 화면용: tenants/{t} get 한 번(「준비 중」 화면이 이미 읽던 그 문서 — 새 읽기를 만들지 않는다)
+  // status 가 'active' 가 아니면(정지·알 수 없는 값·문서 없음·permission-denied) 정지 안내(안전 쪽, 이름은 읽은 만큼만). 네트워크 오류 등은 readDoc 이 던지므로 resolveRole 이 재시도 화면으로 보낸다(「중지됨」으로 단정하지 않는다).
+  const r = await readDoc(P.as('tenant', tid).tenantDoc(tid));
+  return { tenantName: r.exists && typeof r.data.name === 'string' ? r.data.name.slice(0, 60) : '', tenantActive: r.exists && r.data.status === 'active' };
 }
 const siteIdsOf = d => Array.isArray(d && d.siteIds) ? d.siteIds.filter(x => typeof x === 'string' && okSeg(x)).slice(0, 20) : [];
 async function resolveRole(u) {
-  const out = o => Object.assign({ role: 'none', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', tenantName: '', emailVerified: !!(u && u.emailVerified), reason: '', retry: false }, o);
+  const out = o => Object.assign({ role: 'none', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', tenantName: '', tenantActive: true, emailVerified: !!(u && u.emailVerified), reason: '', retry: false }, o);
   const denied = reason => out({ role: 'denied', reason });
   if (!u) return out({});
   if (u.isAnonymous) return out({ role: 'customer', tier: 'CU' });
@@ -3572,7 +3581,7 @@ async function resolveRole(u) {
       const nr = await readDoc(P.as('tenant', parts.tid).staff(email));
       if (nr.exists) {
         const d = nr.data;
-        return d.role === 'staff' && d.active !== false ? out({ role: 'staff', tier: 'ST', world: 'tenant', tid: parts.tid, siteIds: siteIdsOf(d), kind: d.kind || 'pw', memberId: d.memberId || '', tenantName: await tenantNameOf(parts.tid) }) : denied('nostaff');
+        return d.role === 'staff' && d.active !== false ? out({ role: 'staff', tier: 'ST', world: 'tenant', tid: parts.tid, siteIds: siteIdsOf(d), kind: d.kind || 'pw', memberId: d.memberId || '', ...(await tenantStateOf(parts.tid)) }) : denied('nostaff');
       }
       if (parts.tid === 't00') {                                        // 옛 staff/{이메일} 폴백은 t00 만 (t00 이 아닌 코드는 denied)
         const lr = await readDoc(P.as('legacy').staff(email));
@@ -3595,7 +3604,7 @@ async function resolveRole(u) {
       const sr = await readDoc(P.as('tenant', tid).staff(email));
       const d = sr.data, tier = d && ({ hq: 'HQ', site: 'SM', staff: 'ST' })[d.role];
       if (!sr.exists || !tier || d.active === false) return denied('nostaff');   // staffIndex 의 tid 를 믿고, staff 문서가 없거나 꺼져 있으면 denied
-      return out({ role: tier === 'ST' ? 'staff' : 'tenantAdmin', tier, world: 'tenant', tid, siteIds: siteIdsOf(d), kind: d.kind || 'mail', memberId: d.memberId || '', tenantName: await tenantNameOf(tid) });
+      return out({ role: tier === 'ST' ? 'staff' : 'tenantAdmin', tier, world: 'tenant', tid, siteIds: siteIdsOf(d), kind: d.kind || 'mail', memberId: d.memberId || '', ...(await tenantStateOf(tid)) });
     }
     const lr = await readDoc(P.as('legacy').staff(email));              // staffIndex 없음 → 옛 Google 담당자
     if (lr.exists) return out({ role: 'staff', tier: 'ST', world: 'legacy', tid: 't00', kind: lr.data.kind || '', memberId: lr.data.memberId || '' });
@@ -3604,7 +3613,7 @@ async function resolveRole(u) {
 }
 function applyRole(u, r) {
   if (u && !r.retry && ['customer', 'admin', 'staff', 'tenantAdmin'].includes(r.role) && !P.set(r.world, r.tid)) r = Object.assign({}, r, { role: 'denied', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', reason: 'conflict' });
-  Object.assign(AUTH, { user: u, email: (u && u.email || '').toLowerCase(), role: r.role, tier: r.tier, world: r.world, tid: r.tid, siteIds: r.siteIds, kind: r.kind, memberId: r.memberId, tenantName: r.tenantName || '', emailVerified: r.emailVerified, reason: r.reason, retry: r.retry, ready: true });
+  Object.assign(AUTH, { user: u, email: (u && u.email || '').toLowerCase(), role: r.role, tier: r.tier, world: r.world, tid: r.tid, siteIds: r.siteIds, kind: r.kind, memberId: r.memberId, tenantName: r.tenantName || '', tenantActive: r.tenantActive !== false, emailVerified: r.emailVerified, reason: r.reason, retry: r.retry, ready: true });
   if (u) console.info('[role]', r.tier, r.world, r.tid);
 }
 let AUTH_SEQ = 0;
@@ -3620,7 +3629,7 @@ async function onUser(u) {
   if (!u) {
     unsubAll(); TICKETS = []; DATA_READY = false; TN.list = null; TN.counter = undefined; TN.st = {};
     if (S.full === 'customer') { try { await AUTHX.signInAnonymously(); } catch (e) { toast('접속하지 못했습니다. 새로 고쳐 주세요. (' + errCode(e) + ')'); } return; }
-  } else if (AUTH.world === 'tenant' && !TENANT_UI_READY) { unsubAll(); TICKETS = []; DATA_READY = false; }                       // 새 세계 화면이 준비되기 전에는 데이터를 읽지 않는다
+  } else if (AUTH.world === 'tenant' && (!TENANT_UI_READY || !AUTH.tenantActive)) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 화면이 준비되기 전·고객사가 정지된 동안에는 데이터를 읽지 않는다
   else if ((AUTH.retry || AUTH.reason === 'unverified') && S.full !== 'customer') { unsubAll(); TICKETS = []; DATA_READY = false; }   // 인증 안내·다시 시도 화면에서는 데이터를 읽지 않는다
   else startSubs();
   render();
