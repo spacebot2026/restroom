@@ -583,6 +583,12 @@ body.fullmode main{padding:0}
 .gate-form .fld input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:10px 12px;font-size:16px;color:var(--text)}
 .gate-or{display:flex;align-items:center;gap:10px;color:var(--faint);font-size:12px}
 .gate-or::before,.gate-or::after{content:"";flex:1;height:1px;background:var(--line)}
+.gate-tabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+.gate-tab{border:0;background:none;padding:9px 4px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent}
+.gate-tab[aria-selected="true"]{color:var(--text);border-bottom-color:var(--text)}
+.gate-code{margin:0}.gate-code summary{cursor:pointer;color:var(--muted);font-size:12.5px;margin-bottom:6px}
+.gate-row{display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
+.gate-msg{margin:0;font-size:13px;color:var(--muted)}
 .pw-modal{width:min(460px,100%)}
 .pw-modal .fld input{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--ground);border-radius:8px;padding:8px 10px;font-size:14px;color:var(--text)}
 .pw-modal input#pwId,.pw-modal input#pwPw{font-family:var(--mono)}
@@ -1078,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261013-1233';
+const BUILD = '20261013-1335';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1327,19 +1333,26 @@ const fromHex = h => new TextDecoder().decode(Uint8Array.from(h.match(/../g), x 
 // 영문 소문자·숫자·-·_ 만 있는 ID 는 그대로, 한글 등은 'u-' + 16진수로 바꿔 가짜 주소의 앞부분에 쓴다 (로그인할 때는 그냥 ID 를 입력)
 const loginBase = id => (/^[a-z0-9][a-z0-9_-]*$/.test(id) && !id.startsWith('u-') ? id : 'u-' + toHex(id));
 // v = 비밀번호를 초기화한 횟수 + 1. 무료 요금제에서는 남의 비밀번호를 서버에서 바꿀 수 없어, 초기화하면 같은 ID 로 새 계정(v+1)을 만들고 예전 계정은 쓰지 못하게 한다
-const loginEmail = (id, v) => loginBase(id) + (v > 1 ? '.' + v : '') + '@' + STAFF_MAIL_DOMAIN;
+// (2-B) 고객사 코드: t00 이거나 코드를 안 주면 옛 계정과 한 글자도 같은 주소. t01 같은 코드는 ID 뒤에 .코드 를 붙인다
+const loginEmail = (id, v, tid) => loginBase(id) + (tid && tid !== 't00' ? '.' + tid : '') + (v > 1 ? '.' + v : '') + '@' + STAFF_MAIL_DOMAIN;
+// 파서 순서: ①끝의 .숫자 1~2자리 = 판 ②남은 끝의 .글자로 시작하는 3~5자 = 고객사 코드(없으면 t00) ③u-+16진수 복원. 규칙 fakeKeyOk 와 어긋나는 모양(대문자·공백·점이 든 ID)은 null
 const loginParts = em => {
-  em = String(em || '').toLowerCase(); const sfx = '@' + STAFF_MAIL_DOMAIN;
-  if (!em.endsWith(sfx)) return null;
-  let l = em.slice(0, -sfx.length), v = 1; const m = l.match(/^(.+)\.(\d{1,2})$/); if (m) { l = m[1]; v = +m[2]; }
-  if (/^u-([0-9a-f]{2})+$/.test(l)) { try { return { id: fromHex(l.slice(2)), v }; } catch (e) { return null; } }
-  return { id: l, v };
+  em = String(em == null ? '' : em); const sfx = '@' + STAFF_MAIL_DOMAIN;
+  if (em !== em.toLowerCase() || !em.endsWith(sfx)) return null;
+  let l = em.slice(0, -sfx.length), v = 1, tid = 't00', m = l.match(/^(.+)\.(\d{1,2})$/);
+  if (m) { l = m[1]; v = +m[2]; }
+  m = l.match(/^(.+)\.([a-z][a-z0-9]{2,4})$/); if (m) { l = m[1]; tid = m[2]; }
+  if (/^u-([0-9a-f]{2})+$/.test(l)) { try { return { id: fromHex(l.slice(2)), v, tid }; } catch (e) { return null; } }
+  return /^[a-z0-9][a-z0-9_-]*$/.test(l) ? { id: l, v, tid } : null;
 };
 const loginIdOf = em => { const x = loginParts(em); return x ? x.id : ''; };
 const loginVerOf = em => { const x = loginParts(em); return x ? x.v : 1; };
+const loginTidOf = em => { const x = loginParts(em); return x ? x.tid : ''; };
 // 입력한 ID 다듬기: 공백 제거·소문자, 전화번호 모양(010-1234-5678)은 하이픈을 뺀다
 const normLoginId = t => { t = String(t || '').normalize('NFC').trim().toLowerCase().replace(/\s+/g, ''); return /^0\d{1,2}-\d{3,4}-\d{4}$/.test(t) ? t.replace(/-/g, '') : t; };
-const validLoginId = id => /^[a-z0-9가-힣_-]{2,20}$/.test(id) && loginBase(id).length <= 58;
+// 고객사 코드가 있으면 loginBase 한도를 58 → 54 로 낮춘다(코드 최대 5자+점 1 + 판 .NN 3 = 로컬 파트 63자 이하)
+const validLoginId = (id, tid) => /^[a-z0-9가-힣_-]{2,20}$/.test(id) && loginBase(id).length <= (tid && tid !== 't00' ? 54 : 58);
+const loginVKey = (id, tid) => loginBase(id) + (tid && tid !== 't00' ? '.' + tid : '');   // 규칙 loginVKeyOk 와 같은 모양
 const ID_RULE = '글자(영문·한글)·숫자·-·_ 로 2~20자 — 숫자만(전화번호)도 됩니다';
 const isPwUser = u => !!(u && !u.isAnonymous && loginIdOf(u.email) && (u.providerData || []).some(x => x && x.providerId === 'password'));
 function genPwNum() { const a = new Uint32Array(8); crypto.getRandomValues(a); return Array.from(a, x => x % 10).join(''); }
@@ -1410,6 +1423,7 @@ const P = {
   staffCol() { return this._tn() ? this._c(this._p(this._tb(), 'staff')) : DB.collection('staff'); },
   staff(email) { return this._tn() ? this._d(this._p(this._tb(), 'staff', email)) : DB.doc('staff/' + email); },
   cfg(name) { return this._tn() ? ((name === 'ops' || name === 'ui') ? this._d(this._p(this._tb(), 'config', name)) : null) : DB.doc('config/' + name); },   // config/seed 는 새 세계에 없음
+  meta(doc) { return this._tn() ? this._d(this._p(this._tb(), 'meta', doc)) : null; },                       // 고객사 표식(meta/firstHq) — 새 세계에만 있음
   // ---- 전역 (세계와 무관) ----
   loginV(key) { return DB.doc('loginV/' + key); },
   notesCol() { return DB.collection('notes'); },
@@ -1422,6 +1436,11 @@ const P = {
   tenantDoc(tid) { return this._tn() && okTid(tid) ? DB.doc('tenants/' + tid) : null; },
   counters() { return this._tn() ? DB.doc('counters/site') : null; }
 };
+// 주소 &t= · 이 폰의 rc-tid · 입력칸의 회사 코드: 형식을 통과하고 예약어가 아닌 값만 쓴다(대문자는 소문자로). 아니면 '' (= 코드 없음 = t00)
+const tidUsable = t => okTid(t) && !TID_RESERVED.includes(t);
+const cleanTid = raw => { const t = String(raw == null ? '' : raw).trim().toLowerCase(); return tidUsable(t) ? t : ''; };
+const urlTid = () => { try { return cleanTid(new URLSearchParams(location.search).get('t')); } catch (e) { return ''; } };
+const prefillTid = () => urlTid() || cleanTid(LS.get('rc-tid'));
 /* ================= 경로 도우미 P 끝 ================= */
 
 const ASSETS = null;
@@ -1433,7 +1452,9 @@ const DL = { async save({ filename, data }) {
   return { status: 'saved' };
 } };
 let STORE = 'wait';
-const AUTH = { ready: false, user: null, role: 'none', email: '' };
+// role(옛 필드)의 의미는 그대로. tier/world/tid/siteIds/kind/emailVerified 는 2-B 에서 더했다(카드 2.1)
+const AUTH = { ready: false, user: null, role: 'none', email: '', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', emailVerified: false, reason: '', retry: false };
+const TENANT_UI_READY = false;   // 새 세계 화면(2-D)이 준비되면 켠다. 그 전에는 새 세계 사용자(HQ·SM·ST)가 「준비 중」과 로그아웃만 본다
 let AUTH_WAIT = [];
 const waitAuth = () => AUTH.user ? Promise.resolve() : new Promise((res, rej) => { AUTH_WAIT.push(res); setTimeout(() => rej({ code: 'auth-timeout' }), 12000); });
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.tm); toast.tm = setTimeout(() => { t.hidden = true; }, 3400); }
@@ -1561,7 +1582,9 @@ function render() {
   document.body.classList.toggle('fullmode', !!S.full);
   applyRoleUI();
   const isAdmin = AUTH.role === 'admin', isStaffish = isAdmin || AUTH.role === 'staff';
-  if (S.full === 'customer') { $('#roles').innerHTML = ''; if (!SITES_READY) st.innerHTML = '<div class="full"><p class="loading">불러오는 중…</p></div>'; else if (!rById(S.fullRoom)) st.innerHTML = '<div class="full"><div class="gate"><div class="card gate-card"><h2>등록되지 않은 QR입니다</h2><p class="hint" style="margin:0">QR 스티커가 바뀌었을 수 있습니다. 관리 직원에게 알려 주세요.</p></div></div></div>'; else { st.innerHTML = '<div class="full" id="fullC"></div>'; mountQR($('#fullC'), { roomId: S.fullRoom, full: true }); } }
+  const special = specialHTML();   // 새 세계 준비 중 · 이메일 인증 안내 · 다시 시도 (2-B)
+  if (special) { $('#roles').innerHTML = ''; st.innerHTML = special; }
+  else if (S.full === 'customer') { $('#roles').innerHTML = ''; if (!SITES_READY) st.innerHTML = '<div class="full"><p class="loading">불러오는 중…</p></div>'; else if (!rById(S.fullRoom)) st.innerHTML = '<div class="full"><div class="gate"><div class="card gate-card"><h2>등록되지 않은 QR입니다</h2><p class="hint" style="margin:0">QR 스티커가 바뀌었을 수 있습니다. 관리 직원에게 알려 주세요.</p></div></div></div>'; else { st.innerHTML = '<div class="full" id="fullC"></div>'; mountQR($('#fullC'), { roomId: S.fullRoom, full: true }); } }
   else if (S.full === 'staff') { $('#roles').innerHTML = ''; if (isStaffish) { st.innerHTML = '<div class="full" id="fullS"></div>'; mountStaff($('#fullS'), { full: true }); } else st.innerHTML = `<div class="full">${gateHTML('staff')}</div>`; }
   else if (!isAdmin) { $('#roles').innerHTML = ''; st.innerHTML = gateHTML('admin'); }
   else if (renderRoles(), S.view === 'overview') viewOverview(st);
@@ -1581,6 +1604,7 @@ function route() {
   closeDetail();
   render();
   if (S.full === 'customer' && AUTH.ready && !AUTH.user) AUTHX.signInAnonymously().catch(() => {});
+  else if (S.full === 'customer' && AUTH.ready && AUTH.user && !SUBS_ON && AUTH.world !== 'tenant') startSubs();   // 안내 화면에 있다가 접수 주소로 옮겨 온 경우
 }
 function notesHTML(title, items) { return `<p class="dnotes-h">${esc(title)}</p><ul class="dnotes">${items.map(x => `<li>${x}</li>`).join('')}</ul>`; }
 function roomOptions(sel) { return SITES.map(st => siteFloors(st.id).map(f => `<optgroup label="${esc(st.name)} ${f}">${ROOMS.filter(r => r.site === st.id && r.floor === f).map(r => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(roomLabel(r.id))}</option>`).join('')}</optgroup>`).join('')).join(''); }
@@ -2256,24 +2280,24 @@ async function addMember(name, email, role) {
 const PW_ERR = { 'auth/email-already-in-use': '이미 쓴 ID입니다 (지운 사람의 ID도 다시 쓸 수 없습니다). 다른 ID로 하세요', 'auth/operation-not-allowed': 'Firebase에서 「이메일/비밀번호」 로그인이 아직 켜져 있지 않습니다', 'auth/weak-password': '비밀번호가 너무 짧습니다 (6자 이상)', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '잠시 뒤에 다시 해 주세요' };
 const pwErr = e => PW_ERR[errCode(e)] || ('실패 (' + errCode(e) + ')');
 // 관리자 본인의 로그인이 바뀌지 않도록, 별도 Firebase 앱 인스턴스로 계정을 만든다
-async function createLogin(id, pw, v) {
+async function createLogin(id, pw, v, tid) {
   let app; try { app = firebase.app('pw'); } catch (e) { app = firebase.initializeApp(FIREBASE_CONFIG, 'pw'); }
   const a = app.auth();
-  try { await a.createUserWithEmailAndPassword(loginEmail(id, v), pw); }
+  try { await a.createUserWithEmailAndPassword(loginEmail(id, v, tid), pw); }
   finally { try { await a.signOut(); } catch (e) { /* 무시 */ } }
 }
 const idTakenBy = id => Object.keys(STAFF_ACL).filter(k => loginIdOf(k) === id).map(k => (STAFF_ACL[k] || {}).memberId);
 // 새 계정을 만든다. 같은 ID 의 계정이 이미 있으면(예전에 지운 사람·비밀번호 초기화) 다음 버전으로 만든다. 만든 버전을 돌려준다
-async function createLoginAuto(id, pw) {
-  let v0 = 0; try { const d = await P.loginV(loginBase(id)).get(); if (d.exists) v0 = +((d.data() || {}).v) || 0; } catch (e) { /* 없으면 1판부터 */ }
+async function createLoginAuto(id, pw, tid) {
+  let v0 = 0; try { const d = await P.loginV(loginVKey(id, tid)).get(); if (d.exists) v0 = +((d.data() || {}).v) || 0; } catch (e) { /* 없으면 1판부터 */ }
   const start = v0 + 1;
   for (let v = start; v < start + 8; v++) {
-    try { await createLogin(id, pw, v); return v; }
+    try { await createLogin(id, pw, v, tid); return v; }
     catch (e) { if (errCode(e) !== 'auth/email-already-in-use') throw e; }
   }
   throw { code: 'auth/email-already-in-use' };
 }
-const saveVerOps = (batch, id, v) => { if (v > 1) batch.set(P.loginV(loginBase(id)), { v, at: Date.now() }); };
+const saveVerOps = (batch, id, v, tid) => { if (v > 1) batch.set(P.loginV(loginVKey(id, tid)), { v, at: Date.now() }); };
 async function addPwMember(name, id, role, pw) {
   name = String(name || '').trim().slice(0, 20); id = normLoginId(id);
   if (!name || !validLoginId(id)) return { r: 'bad' };
@@ -2302,6 +2326,114 @@ async function setMemberLogin(m, id, pw) {
   old.forEach(k => { delete STAFF_ACL[k]; });
   STAFF_ACL[em] = { memberId: m.id, name: m.name, kind: 'pw' };
 }
+/* ---------- 고객사 계정 발급 (조각 2-B: 함수와 시험까지. 이를 부르는 화면은 2-C 의 운영자 「첫 본사 관리자 지정」뿐) ----------
+   규칙 staffCreateOk 와 같은 모양으로 쓰고, 최종 판정은 서버 규칙이 한다. 비밀번호는 어디에도 저장·출력하지 않는다(계정 만들기 호출에만 쓴다). */
+const MAIL_RE = /^[a-z0-9._%+-]{1,64}@[a-z0-9.-]+\.[a-z]{2,}$/;           // 규칙 realKey 와 같은 모양(점·+ 허용)
+const UID_RE = /^[A-Za-z0-9_-]{1,128}$/;                                  // 규칙 byUid 허용 문자
+const normMail = s => String(s == null ? '' : s).trim().toLowerCase();
+const isRealMail = e => MAIL_RE.test(e) && !e.endsWith('@' + STAFF_MAIL_DOMAIN);
+const MAIL_BATCH = 5;                                                     // 규칙의 호출 한도(감사 F10) 때문에 실제 이메일 담당자는 한 배치에 5명 이하
+function genStrongPw() {                                                  // 24자: 대·소문자·숫자·기호를 모두 포함, crypto.getRandomValues
+  const sets = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%^&*-_=+'], all = sets.join('');
+  const r = new Uint32Array(24), j = new Uint32Array(24); crypto.getRandomValues(r); crypto.getRandomValues(j);
+  const out = sets.map((s, i) => s[r[i] % s.length]);
+  for (let i = sets.length; i < 24; i++) out.push(all[r[i] % all.length]);
+  for (let i = out.length - 1; i > 0; i--) { const k = j[i] % (i + 1); const t = out[i]; out[i] = out[k]; out[k] = t; }
+  return out.join('');
+}
+function pwApp() { try { return firebase.app('pw'); } catch (e) { return firebase.initializeApp(FIREBASE_CONFIG, 'pw'); } }   // 발급자 본인의 로그인이 바뀌지 않도록 별도 앱 인스턴스
+const tierCan = {                                                         // 규칙 staffCreateOk 의 앱 쪽 사전 확인(서버가 최종)
+  mail: (tid, role, first) => first ? (AUTH.tier === 'OP' && role === 'hq') : (AUTH.tier === 'HQ' && AUTH.tid === tid),
+  pw: (tid, siteIds) => (AUTH.tier === 'HQ' && AUTH.tid === tid) || (AUTH.tier === 'SM' && AUTH.tid === tid && siteIds.length >= 1 && siteIds.every(s => AUTH.siteIds.includes(s)))
+};
+function checkStaffShape(role, siteIds) {                                 // 규칙 staffShape 의 role/siteIds 일관성
+  if (!['hq', 'site', 'staff'].includes(role)) return 'bad-role';
+  if (!Array.isArray(siteIds) || siteIds.length > 20 || !siteIds.every(okSid)) return 'bad-sites';
+  if (role === 'hq' && siteIds.length !== 0) return 'bad-sites';
+  if (role === 'site' && siteIds.length !== 1) return 'bad-sites';
+  if (role === 'staff' && siteIds.length < 1) return 'bad-sites';
+  return '';
+}
+// 실제 이메일 계정 발급. items = [{ name, email, role, siteIds, st? }], opt = { first: true }(운영자의 첫 HQ 지정: 1명만).
+// 실행 순서: ②Auth 계정(이미 있으면 그대로 씀) → ④한 배치(staff + staffIndex [+ meta/firstHq | tenants.counts.staff]) → ③재설정 메일.
+// (메일을 배치 뒤에 보내는 이유: 서버가 거부한 등록에는 초대 메일이 나가지 않는다.) st 는 재시도 상태 — 같은 st 로 다시 부르면 끝낸 단계는 건너뛴다.
+async function issueMailBatch(tid, items, opt) {
+  opt = opt || {}; const first = !!opt.first, res = [];
+  const me = AUTH.user;
+  const fail = (it, code, stage) => { const r = { email: it.email, ok: false, stage: stage || 'check', code, st: it.st }; res.push(r); return r; };
+  if (!okTid(tid)) return items.map(it => ({ email: it.email, ok: false, stage: 'check', code: 'bad-tid' }));
+  if (!me || !UID_RE.test(me.uid || '')) return items.map(it => ({ email: it.email, ok: false, stage: 'check', code: 'no-uid' }));
+  const T = P.as('tenant', tid), todo = [];
+  for (const raw of items) {
+    const it = { name: String(raw.name || '').trim().slice(0, 40), email: normMail(raw.email), role: raw.role, siteIds: Array.isArray(raw.siteIds) ? raw.siteIds.slice() : [], st: raw.st || {} };
+    if (!it.name) { fail(it, 'bad-name'); continue; }
+    if (!isRealMail(it.email)) { fail(it, 'bad-email'); continue; }
+    const sh = checkStaffShape(it.role, it.siteIds); if (sh) { fail(it, sh); continue; }
+    if (!tierCan.mail(tid, it.role, first)) { fail(it, 'forbidden'); continue; }
+    todo.push(it);
+  }
+  if (first && todo.length > 1) return items.map(it => ({ email: normMail(it.email), ok: false, stage: 'check', code: 'first-hq-one' }));
+  for (let i = 0; i < todo.length; i += MAIL_BATCH) {
+    const chunk = todo.slice(i, i + MAIL_BATCH), live = [];
+    for (const it of chunk) {                                             // ② Auth 계정
+      if (!it.st.authDone) {
+        const a = pwApp().auth();
+        try { await a.createUserWithEmailAndPassword(it.email, genStrongPw()); it.st.authDone = true; }
+        catch (e) { if (errCode(e) === 'auth/email-already-in-use') { it.st.authDone = true; it.st.reused = true; } else { res.push({ email: it.email, ok: false, stage: 'auth', code: errCode(e), st: it.st }); continue; } }
+        finally { try { await a.signOut(); } catch (e) { /* 무시 */ } }
+      }
+      live.push(it);
+    }
+    const toWrite = live.filter(it => !it.st.written);
+    if (toWrite.length) {                                                 // ④ 한 배치
+      try {
+        const batch = DB.batch(), now = Date.now();
+        for (const it of toWrite) {
+          batch.set(T.staff(it.email), { role: it.role, siteIds: it.siteIds, name: it.name, kind: 'mail', active: true, at: now, byUid: me.uid });
+          batch.set(T.staffIndex(it.email), { tid });
+        }
+        if (first) batch.set(T.meta('firstHq'), { at: now });
+        else batch.update(T.tenantDoc(tid), { 'counts.staff': FV.increment(toWrite.length) });   // OP 의 첫 HQ 배치에는 counts 갱신이 없다(규칙상 OP 는 counts 를 못 고침)
+        await batch.commit();
+        toWrite.forEach(it => { it.st.written = true; });
+      } catch (e) { toWrite.forEach(it => res.push({ email: it.email, ok: false, stage: 'write', code: errCode(e), st: it.st })); continue; }
+    }
+    for (const it of live) {                                              // ③ 재설정 메일(받은 사람이 자기 비밀번호를 정한다)
+      if (!it.st.mailed) { try { await pwApp().auth().sendPasswordResetEmail(it.email); it.st.mailed = true; } catch (e) { it.st.mailCode = errCode(e); } }
+      res.push({ email: it.email, ok: true, mailed: !!it.st.mailed, reused: !!it.st.reused, mailCode: it.st.mailCode || '', st: it.st });
+    }
+  }
+  return res;
+}
+const issueMail = async (tid, item, opt) => (await issueMailBatch(tid, [item], opt))[0];
+async function resendInvite(email) {                                      // 「메일을 다시 보내기」: 계정 유무와 상관없이 같은 결과를 돌려준다
+  email = normMail(email); if (!isRealMail(email)) return { ok: false, code: 'bad-email' };
+  try { await pwApp().auth().sendPasswordResetEmail(email); } catch (e) { const c = errCode(e); if (c === 'auth/network-request-failed' || c === 'auth/too-many-requests') return { ok: false, code: c }; }
+  return { ok: true };
+}
+// ID/비밀번호(전화번호) 담당자 발급·비밀번호 초기화(같은 ID 로 다음 판 계정). o = { id, name, siteIds, pw?, resetFrom?: { email, role, siteIds, name } }
+async function issuePw(tid, o) {
+  const me = AUTH.user, id = normLoginId(o.id), name = String(o.name || '').trim().slice(0, 40), siteIds = Array.isArray(o.siteIds) ? o.siteIds.slice() : [];
+  if (!okTid(tid)) return { ok: false, code: 'bad-tid' };
+  if (!me || !UID_RE.test(me.uid || '')) return { ok: false, code: 'no-uid' };
+  if (!name) return { ok: false, code: 'bad-name' };
+  if (!validLoginId(id, tid)) return { ok: false, code: 'bad-id' };
+  const sh = checkStaffShape('staff', siteIds); if (sh) return { ok: false, code: sh };
+  if (!tierCan.pw(tid, siteIds)) return { ok: false, code: 'forbidden' };
+  const pw = o.pw || genPw();
+  let v; try { v = await createLoginAuto(id, pw, tid); } catch (e) { return { ok: false, stage: 'auth', code: errCode(e) }; }
+  const em = loginEmail(id, v, tid), T = P.as('tenant', tid);
+  try {
+    const batch = DB.batch();
+    if (o.resetFrom && o.resetFrom.email) batch.delete(T.staff(normMail(o.resetFrom.email)));
+    batch.set(T.staff(em), { role: 'staff', siteIds, name, kind: 'pw', active: true, at: Date.now(), byUid: me.uid });
+    saveVerOps(batch, id, v, tid);
+    if (!o.resetFrom && AUTH.tier === 'HQ') batch.update(T.tenantDoc(tid), { 'counts.staff': FV.increment(1) });
+    await batch.commit();
+  } catch (e) { return { ok: false, stage: 'write', code: errCode(e), email: em, v }; }
+  return { ok: true, v, email: em, cred: { id, pw } };                    // cred 는 호출한 화면이 한 번만 보여 준다(어디에도 저장하지 않음)
+}
+
 async function addMemberForm() {
   const name = $('#maName').value, who0 = String($('#maLogin').value || '').trim().toLowerCase(), role = $('#maRole').value, who = who0.includes('@') ? who0 : normLoginId(who0);
   if (who.includes('@')) {
@@ -3005,26 +3137,126 @@ function gateHTML(kind) {
   const title = kind === 'admin' ? '관리자 로그인' : '담당자 로그인', who = kind === 'admin' ? '관리자' : '담당자';
   const denied = google ? (pw ? `<p class="gate-bad">ID ${esc(loginIdOf(u.email))} 는 ${who}로 등록돼 있지 않습니다. 관리자에게 알려 주세요.</p>` : `<p class="gate-bad">${esc(u.email || '')} 계정은 ${who}로 등록돼 있지 않습니다.${kind === 'staff' ? ' 관리자에게 이 이메일을 알려 주세요.' : ''}</p>`) : '';
   const head = `<div class="brand"><span class="logo">SPACE</span><div style="text-align:left"><b>화장실 불편접수</b><small>판 ${BUILD}</small></div></div><h2>${title}</h2>`;
+  const pre = prefillTid();
+  const codeFld = `<details class="gate-code"${pre ? ' open' : ''}><summary>회사 코드가 있으면 입력</summary><label class="fld"><span class="lab">회사 코드</span><input type="text" id="lgTid" name="company" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="12" value="${esc(pre)}" placeholder="예: abc12"></label></details>`;
   if (kind === 'staff') return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">관리자에게 받은 ID(전화번호 등)와 비밀번호로 로그인합니다.</p>${denied}
-    <form id="pwLogin" class="gate-form"><label class="fld"><span class="lab">ID</span><input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="20"></label><label class="fld"><span class="lab">비밀번호</span><input type="password" id="lgPw" name="password" autocomplete="current-password" maxlength="40"></label><p class="gate-bad" id="lgErr" hidden></p><button type="submit" class="b primary gate-btn">로그인</button></form>
+    <form id="pwLogin" class="gate-form"><label class="fld"><span class="lab">ID</span><input type="text" id="lgId" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="20"></label><label class="fld"><span class="lab">비밀번호</span><input type="password" id="lgPw" name="password" autocomplete="current-password" maxlength="40"></label>${codeFld}<p class="gate-bad" id="lgErr" hidden></p><button type="submit" class="b primary gate-btn">로그인</button></form>
     <div class="gate-or"><span>Google 계정이 있다면</span></div><button type="button" class="b gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
-  return `<div class="gate"><div class="card gate-card">${head}<p class="hint" style="margin:0">등록된 Google 계정으로 로그인합니다.</p>${denied}<button type="button" class="b primary gate-btn" data-act="login">Google로 로그인</button>${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
+  const tabs = `<div class="gate-tabs" role="tablist"><button type="button" role="tab" class="gate-tab" data-act="gtab" data-tab="email" aria-selected="${GTAB === 'email'}">이메일로 로그인</button><button type="button" role="tab" class="gate-tab" data-act="gtab" data-tab="google" aria-selected="${GTAB === 'google'}">Google로 로그인</button></div>`;
+  const emailPanel = `<div data-gpanel="email"${GTAB === 'email' ? '' : ' hidden'}><p class="hint" style="margin:0">본사·현장 관리자는 이메일과 비밀번호로 로그인합니다.</p>${denied}<form id="emLogin" class="gate-form"><label class="fld"><span class="lab">이메일</span><input type="text" inputmode="email" id="amEmail" name="username" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false" maxlength="80"></label><label class="fld"><span class="lab">비밀번호</span><input type="password" id="amPw" name="password" autocomplete="current-password" maxlength="64"></label><div class="gate-row"><button type="button" class="b" data-act="pwShow">보기</button><button type="button" class="b" data-act="forgotPw">비밀번호를 잊었어요</button></div><p class="gate-bad" id="amErr" hidden></p><p class="gate-msg" id="amInfo" role="status" hidden></p><button type="submit" class="b primary gate-btn">로그인</button></form></div>`;
+  return `<div class="gate"><div class="card gate-card">${head}${tabs}<div data-gpanel="google"${GTAB === 'google' ? '' : ' hidden'}><p class="hint" style="margin:0">등록된 Google 계정으로 로그인합니다.</p>${denied}<button type="button" class="b primary gate-btn" data-act="login">Google로 로그인</button></div>${emailPanel}${google ? '<button type="button" class="b" data-act="logout">다른 계정으로</button>' : ''}</div></div>`;
 }
+let LG_BUSY = false;   // 담당자 로그인 처리 중(중복 제출 방지)
 const LOGIN_ERR = { 'auth/invalid-credential': 'ID 또는 비밀번호가 맞지 않습니다', 'auth/wrong-password': 'ID 또는 비밀번호가 맞지 않습니다', 'auth/user-not-found': 'ID 또는 비밀번호가 맞지 않습니다', 'auth/invalid-email': 'ID 형식이 맞지 않습니다', 'auth/too-many-requests': '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/operation-not-allowed': 'ID/비밀번호 로그인이 아직 켜지지 않았습니다. 관리자에게 알려 주세요', 'auth/user-disabled': '사용이 중지된 계정입니다. 관리자에게 알려 주세요' };
 document.addEventListener('submit', async e => {
   if (!e.target || e.target.id !== 'pwLogin') return;
   e.preventDefault();
+  if (LG_BUSY) return;
   const id = normLoginId(e.target.querySelector('#lgId').value), pw = e.target.querySelector('#lgPw').value;
   const show = m => { const er = document.querySelector('#lgErr'); if (er) { er.textContent = m; er.hidden = !m; } };
-  const busy = on => { const b = document.querySelector('#pwLogin button[type="submit"]'); if (b) b.disabled = on; };
+  const busy = on => { LG_BUSY = on; const b = document.querySelector('#pwLogin button[type="submit"]'); if (b) b.disabled = on; };
   if (!id || !pw) { show('ID와 비밀번호를 넣어 주세요'); return; }
-  if (!validLoginId(id)) { show('ID 또는 비밀번호가 맞지 않습니다'); return; }
+  const tidEl = e.target.querySelector('#lgTid'), tid0 = tidEl ? String(tidEl.value).trim().toLowerCase() : '', tid = tid0 ? (tidUsable(tid0) ? tid0 : null) : 't00';
+  if (tid === null) { show('회사 코드를 확인해 주세요 (영문 소문자로 시작하는 3~5자)'); return; }
+  if (!validLoginId(id, tid)) { show('ID 또는 비밀번호가 맞지 않습니다'); return; }
   show(''); busy(true);
   // 관리자가 비밀번호를 초기화한 ID 는 새 계정(버전)이므로, 공개된 버전 표(loginV, ID 를 알아야만 읽힘)를 먼저 읽는다
-  let v = 1; try { const d = await P.loginV(loginBase(id)).get(); if (d.exists) v = Math.max(1, +((d.data() || {}).v) || 1); } catch (er) { /* 읽지 못하면 1판 */ }
-  try { await AUTHX.signInWithEmailAndPassword(loginEmail(id, v), pw); }
+  let v = 1; try { const d = await P.loginV(loginVKey(id, tid)).get(); if (d.exists) v = Math.max(1, +((d.data() || {}).v) || 1); } catch (er) { /* 읽지 못하면 1판 */ }
+  try { await AUTHX.signInWithEmailAndPassword(loginEmail(id, v, tid), pw); rememberTid(tid); }
   catch (err) { show(LOGIN_ERR[errCode(err)] || ('로그인하지 못했습니다 (' + errCode(err) + ')')); busy(false); }
+  finally { LG_BUSY = false; }
 });
+/* ---------- 로그인 화면 3종 · 안내 화면 (조각 2-B) ----------
+   담당자: ID·비밀번호 + 접힌 「회사 코드」(주소 &t= → 이 폰의 rc-tid 순서로 미리 채움). 관리자: 이메일 / Google 탭. 운영자는 Google 탭.
+   외부 값(이메일·오류 문구·주소 값)은 모두 esc() 를 거쳐 HTML 에 넣는다. 비밀번호는 입력칸 밖 어디에도 두지 않는다. */
+let GTAB = LS.get('rc-admin-tab') === 'email' ? 'email' : 'google';       // 관리자 로그인 화면의 처음 탭: 마지막으로 쓴 탭, 없으면 Google
+const rememberTid = tid => { if (tid && tid !== 't00') LS.set('rc-tid', tid); else LS.del('rc-tid'); };
+const gateBrand = () => `<div class="brand"><span class="logo">SPACE</span><div style="text-align:left"><b>화장실 불편접수</b><small>판 ${BUILD}</small></div></div>`;
+const specialCard = (title, body, buttons) => `<div class="gate"><div class="card gate-card">${gateBrand()}<h2>${esc(title)}</h2>${body}${buttons}</div></div>`;
+function notReadyHTML() {                                                 // 새 세계 사용자(HQ·SM·ST): TENANT_UI_READY 가 켜지기 전의 안내 + 로그아웃
+  const title = AUTH.tier === 'HQ' ? '본사 관리자 화면은 준비 중입니다' : AUTH.tier === 'SM' ? '현장 관리자 화면은 준비 중입니다' : '담당자 화면은 준비 중입니다';
+  return specialCard(title, '<p class="hint" style="margin:0">곧 사용하실 수 있습니다.</p>', '<button type="button" class="b gate-btn" data-act="logout">로그아웃</button>');
+}
+function verifyHTML() {                                                   // 이메일 미인증(규칙 verified() 가 관리자급의 전제)
+  return specialCard('이메일 인증이 필요합니다',
+    `<p class="hint" style="margin:0">${esc(AUTH.email)} 로 보낸 메일의 링크를 눌러 인증한 뒤 「인증했어요」를 눌러 주세요. 메일이 보이지 않으면 스팸함도 확인해 주세요.</p><p class="gate-msg" id="verMsg" role="status" hidden></p>`,
+    '<button type="button" class="b primary gate-btn" data-act="verDone">인증했어요</button><button type="button" class="b gate-btn" data-act="verResend">인증 메일 다시 보내기</button><button type="button" class="b" data-act="logout">다른 계정으로</button>');
+}
+const retryHTML = () => specialCard('확인하지 못했습니다', '<p class="hint" style="margin:0">인터넷 연결을 확인한 뒤 다시 시도해 주세요.</p>', '<button type="button" class="b primary gate-btn" data-act="roleRetry">다시 시도</button><button type="button" class="b" data-act="logout">로그아웃</button>');
+const conflictHTML = () => specialCard('다시 로그인해 주세요', '<p class="hint" style="margin:0">로그인 상태가 바뀌었습니다. 로그아웃한 뒤 다시 로그인해 주세요.</p>', '<button type="button" class="b primary gate-btn" data-act="logout">로그아웃</button>');
+function specialHTML() {                                                  // 판정 결과가 「화면 대신 안내」인 경우. 이용객 접수 화면(QR)은 지금까지처럼 둔다
+  const u = AUTH.user;
+  if (!AUTH.ready || !u || u.isAnonymous) return '';
+  if (AUTH.world === 'tenant' && !TENANT_UI_READY) return notReadyHTML();
+  if (S.full === 'customer') return '';
+  if (AUTH.retry) return retryHTML();
+  if (AUTH.reason === 'unverified') return verifyHTML();
+  if (AUTH.reason === 'conflict') return conflictHTML();
+  return '';
+}
+const EM_ERR = { 'auth/invalid-credential': '이메일 또는 비밀번호가 맞지 않습니다', 'auth/wrong-password': '이메일 또는 비밀번호가 맞지 않습니다', 'auth/user-not-found': '이메일 또는 비밀번호가 맞지 않습니다', 'auth/invalid-email': '이메일 또는 비밀번호가 맞지 않습니다', 'auth/too-many-requests': '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/operation-not-allowed': '이메일/비밀번호 로그인이 아직 켜지지 않았습니다. 운영자에게 알려 주세요', 'auth/user-disabled': '사용이 중지된 계정입니다. 운영자에게 알려 주세요' };
+const RESET_SENT = '메일을 보냈습니다. 받은편지함을 확인하세요';             // 가입 여부와 상관없이 항상 같은 문구(계정 존재를 알려 주지 않는다)
+async function forgotPassword(raw) {
+  const email = normMail(raw);
+  if (!MAIL_RE.test(email)) return { ok: false, msg: '이메일을 먼저 넣어 주세요' };
+  try { if (!email.endsWith('@' + STAFF_MAIL_DOMAIN)) await AUTHX.sendPasswordResetEmail(email); }
+  catch (e) {
+    const c = errCode(e);
+    if (c === 'auth/network-request-failed') return { ok: false, msg: '인터넷 연결을 확인해 주세요' };
+    if (c === 'auth/too-many-requests') return { ok: false, msg: '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요' };
+    /* 계정 없음 등 그 밖의 오류는 알리지 않는다 */
+  }
+  return { ok: true, msg: RESET_SENT };
+}
+let EM_BUSY = false;
+document.addEventListener('submit', async e => {
+  if (!e.target || e.target.id !== 'emLogin') return;
+  e.preventDefault();
+  if (EM_BUSY) return;
+  const email = normMail(e.target.querySelector('#amEmail').value), pw = e.target.querySelector('#amPw').value;
+  const show = m => { const er = document.querySelector('#amErr'); if (er) { er.textContent = m; er.hidden = !m; } };
+  const busy = on => { EM_BUSY = on; const b = document.querySelector('#emLogin button[type="submit"]'); if (b) b.disabled = on; };
+  if (!email || !pw) { show('이메일과 비밀번호를 넣어 주세요'); return; }
+  if (!MAIL_RE.test(email)) { show('이메일 형식을 확인해 주세요'); return; }
+  show(''); busy(true);
+  try { await AUTHX.signInWithEmailAndPassword(email, pw); }
+  catch (err) { show(EM_ERR[errCode(err)] || ('로그인하지 못했습니다 (' + errCode(err) + ')')); busy(false); }
+  finally { EM_BUSY = false; }
+});
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-act="gtab"],[data-act="forgotPw"],[data-act="pwShow"],[data-act="verResend"],[data-act="verDone"],[data-act="roleRetry"]'); if (!b) return;
+  e.preventDefault(); e.stopPropagation();
+  const a = b.dataset.act;
+  if (a === 'gtab') {
+    GTAB = b.dataset.tab === 'email' ? 'email' : 'google'; LS.set('rc-admin-tab', GTAB);
+    $$('[data-gpanel]').forEach(p => { p.hidden = p.dataset.gpanel !== GTAB; });
+    $$('[data-act="gtab"]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === GTAB)));
+  } else if (a === 'pwShow') {
+    const i = $('#amPw'); if (i) { const show = i.type === 'password'; i.type = show ? 'text' : 'password'; b.textContent = show ? '숨기기' : '보기'; }
+  } else if (a === 'forgotPw') {
+    if (b.disabled) return; b.disabled = true;
+    const r = await forgotPassword(($('#amEmail') || {}).value);
+    const m = $('#amInfo'); if (m) { m.textContent = r.msg; m.hidden = false; m.classList.toggle('gate-bad', !r.ok); }
+    b.disabled = false;
+  } else if (a === 'verResend') {
+    if (b.disabled) return; b.disabled = true;
+    let msg = '인증 메일을 보냈습니다. 받은편지함을 확인하세요';
+    try { await AUTHX.currentUser.sendEmailVerification(); }
+    catch (er) { msg = errCode(er) === 'auth/too-many-requests' ? '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요' : '메일을 보내지 못했습니다 (' + errCode(er) + ')'; }
+    const m = $('#verMsg'); if (m) { m.textContent = msg; m.hidden = false; }
+    b.disabled = false;
+  } else if (a === 'verDone') {
+    if (b.disabled) return; b.disabled = true;
+    const u = AUTHX.currentUser;
+    try { await u.reload(); await u.getIdToken(true); await onUser(AUTHX.currentUser); }      // 규칙은 토큰의 email_verified 를 본다 → 토큰을 새로 받고 판정을 다시 한다
+    catch (er) { const m = $('#verMsg'); if (m) { m.textContent = '확인하지 못했습니다 (' + errCode(er) + ')'; m.hidden = false; } b.disabled = false; return; }
+    if (AUTH.reason === 'unverified') { const m = $('#verMsg'); if (m) { m.textContent = '아직 인증되지 않았습니다. 메일의 링크를 누른 뒤 다시 눌러 주세요'; m.hidden = false; } }
+  } else if (a === 'roleRetry') {
+    if (b.disabled) return; b.disabled = true;
+    AUTH.ready = false; render(); await onUser(AUTHX.currentUser);
+  }
+}, true);
+
 function applyRoleUI() {
   const admin = AUTH.role === 'admin';
   const sw = $('#editToggle').closest('label'); if (sw) sw.hidden = !admin;
@@ -3080,7 +3312,7 @@ document.addEventListener('click', e => {
   else copyText(STAFF_URL).then(ok => toast(ok ? '담당자 앱 주소를 복사했습니다. 카톡 등에 붙여 보내세요.' : '복사하지 못했습니다. 주소: ' + STAFF_URL));
 }, true);
 
-let UNSUBS = [];
+let UNSUBS = [], SUBS_ON = false;
 const TRACKED = {}, TRACK_UNSUB = {};
 let CUST_MERGE = null;
 let MEMBERS_RAW = [];
@@ -3092,7 +3324,7 @@ const SEED_SITE = { id: 'S01', name: '스페이스학운공장', address: '경�
 const OWNER_ID = 'mOwner';
 let MEMBERS_READY = false, SEEDING = false, SEED_CHECKED = false;
 async function ensureSeed() {
-  if (AUTH.role !== 'admin' || !SITES_READY || !MEMBERS_READY || SEEDING || SEED_CHECKED) return;
+  if (AUTH.role !== 'admin' || P.world !== 'legacy' || !SITES_READY || !MEMBERS_READY || SEEDING || SEED_CHECKED) return;
   SEEDING = true;
   try {
     const flag = await P.cfg('seed').get();
@@ -3125,7 +3357,7 @@ function onMembersChanged() {
   dispatch([]);
   if (!S.full && S.view === 'admin' && AS.sub === 'staff' && AS.el && document.body.contains(AS.el)) drawAdmMain();
 }
-function unsubAll() { UNSUBS.forEach(u => { try { u(); } catch (e) { /* 무시 */ } }); UNSUBS = []; Object.keys(TRACK_UNSUB).forEach(k => delete TRACK_UNSUB[k]); CUST_MERGE = null; }
+function unsubAll() { UNSUBS.forEach(u => { try { u(); } catch (e) { /* 무시 */ } }); UNSUBS = []; SUBS_ON = false; Object.keys(TRACK_UNSUB).forEach(k => delete TRACK_UNSUB[k]); CUST_MERGE = null; }
 function trackTicket(id) {
   if (!id || TRACK_UNSUB[id] || !AUTH.user || AUTH.role === 'admin' || AUTH.role === 'staff') return;
   TRACK_UNSUB[id] = P.ticket(id).onSnapshot(s => { if (s.exists) TRACKED[id] = s.data(); else delete TRACKED[id]; if (CUST_MERGE) CUST_MERGE(); }, () => {});
@@ -3175,31 +3407,86 @@ function startSubs() {
     if (S.fullRoom) { const last = LS.get('rc-last-' + S.fullRoom); if (last) trackTicket(last); }
     if (QS.res && QS.res.tid) trackTicket(QS.res.tid);
   }
-  STORE = 'on'; updateEditbar();
+  STORE = 'on'; SUBS_ON = true; updateEditbar();
 }
 AUTHX.getRedirectResult().catch(e => { if (e && e.code) toast('로그인하지 못했습니다 (' + e.code + ')'); });
-AUTHX.onAuthStateChanged(async u => {
-  AUTH.user = u; AUTH.email = (u && u.email || '').toLowerCase();
-  let role = 'none', memberId = '';
-  if (u) {
-    if (u.isAnonymous) role = 'customer';
-    else if (!u.emailVerified && !isPwUser(u)) role = 'denied';
-    else {
-      if (!isPwUser(u)) { try { await P.notesCol().limit(1).get(); role = 'admin'; } catch (e) { role = ''; } } else role = '';
-      try { const d = await P.staff(AUTH.email).get(); if (d.exists) { memberId = (d.data() || {}).memberId || ''; if (!role) role = 'staff'; } } catch (e2) { /* 무시 */ }
-      if (!role) role = 'denied';
+/* ---------- 역할 판정 (조각 2-B) ----------
+   resolveRole 은 읽기만 하고 AUTH 를 건드리지 않는다. 결과를 applyRole 이 한 번에 대입한다(중간 상태로 render 하지 않는다).
+   permission-denied 는 OP 탐침(notes)에서는 「OP 아님」, 새 경로(tenants/…·staffIndex) 읽기에서는 「새 구조 없음」(규칙 3판이 살아 있는 동안)으로 본다.
+   그 밖의 오류(unavailable·deadline-exceeded·네트워크)는 denied 로 단정하지 않고 「다시 시도」 화면으로 보낸다. */
+const isPermDenied = e => !!e && e.code === 'permission-denied';
+async function readDoc(ref) {
+  if (!ref) return { exists: false, data: null, denied: false };
+  try { const d = await ref.get(); return { exists: !!d.exists, data: d.exists ? (d.data() || {}) : null, denied: false }; }
+  catch (e) { if (isPermDenied(e)) return { exists: false, data: null, denied: true }; throw e; }
+}
+const siteIdsOf = d => Array.isArray(d && d.siteIds) ? d.siteIds.filter(x => typeof x === 'string' && okSeg(x)).slice(0, 20) : [];
+async function resolveRole(u) {
+  const out = o => Object.assign({ role: 'none', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', emailVerified: !!(u && u.emailVerified), reason: '', retry: false }, o);
+  const denied = reason => out({ role: 'denied', reason });
+  if (!u) return out({});
+  if (u.isAnonymous) return out({ role: 'customer', tier: 'CU' });
+  const email = String(u.email || '').toLowerCase();
+  try {
+    if (email.endsWith('@' + STAFF_MAIL_DOMAIN)) {                      // 가짜 도메인 계정 = ID/비밀번호 담당자
+      const parts = loginParts(email);
+      if (!parts || !isPwUser(u)) return denied('nostaff');
+      const nr = await readDoc(P.as('tenant', parts.tid).staff(email));
+      if (nr.exists) {
+        const d = nr.data;
+        return d.role === 'staff' && d.active !== false ? out({ role: 'staff', tier: 'ST', world: 'tenant', tid: parts.tid, siteIds: siteIdsOf(d), kind: d.kind || 'pw', memberId: d.memberId || '' }) : denied('nostaff');
+      }
+      if (parts.tid === 't00') {                                        // 옛 staff/{이메일} 폴백은 t00 만 (t00 이 아닌 코드는 denied)
+        const lr = await readDoc(P.as('legacy').staff(email));
+        if (lr.exists) return out({ role: 'staff', tier: 'ST', world: 'legacy', tid: 't00', kind: lr.data.kind || '', memberId: lr.data.memberId || '' });
+      }
+      return denied('nostaff');
     }
-  }
-  AUTH.role = role; AUTH.memberId = memberId; AUTH.ready = true;
-  if (role === 'staff') SS.staffId = memberId;
-  else if (role === 'admin') SS.staffId = LS.get('rc-staff') || memberId || '';
+    if (!u.emailVerified) return denied('unverified');                  // 데이터를 읽기 전에 인증 안내 화면
+    let op = false;
+    try { await P.notesCol().limit(1).get(); op = true; } catch (e) { if (!isPermDenied(e)) throw e; }   // 서버 규칙이 운영자를 판정한다(코드에 이메일 없음)
+    if (op) {                                                           // OP 이면 고객사 역할은 보지 않는다(staffIndex 조회 안 함)
+      const lr = await readDoc(P.as('legacy').staff(email));            // 옛 세계: 관리자를 담당자 조현행에 연결(지금과 같음)
+      return out({ role: 'admin', tier: 'OP', world: 'legacy', memberId: lr.exists ? (lr.data.memberId || '') : '' });
+    }
+    const ix = await readDoc(P.as('tenant').staffIndex(email));
+    if (ix.exists) {
+      const tid = ix.data.tid;
+      if (!okTid(tid)) return denied('nostaff');
+      const sr = await readDoc(P.as('tenant', tid).staff(email));
+      const d = sr.data, tier = d && ({ hq: 'HQ', site: 'SM', staff: 'ST' })[d.role];
+      if (!sr.exists || !tier || d.active === false) return denied('nostaff');   // staffIndex 의 tid 를 믿고, staff 문서가 없거나 꺼져 있으면 denied
+      return out({ role: tier === 'ST' ? 'staff' : 'tenantAdmin', tier, world: 'tenant', tid, siteIds: siteIdsOf(d), kind: d.kind || 'mail', memberId: d.memberId || '' });
+    }
+    const lr = await readDoc(P.as('legacy').staff(email));              // staffIndex 없음 → 옛 Google 담당자
+    if (lr.exists) return out({ role: 'staff', tier: 'ST', world: 'legacy', tid: 't00', kind: lr.data.kind || '', memberId: lr.data.memberId || '' });
+    return denied('nostaff');
+  } catch (e) { return out({ role: '', reason: 'error', retry: true }); }
+}
+function applyRole(u, r) {
+  if (u && !r.retry && ['customer', 'admin', 'staff', 'tenantAdmin'].includes(r.role) && !P.set(r.world, r.tid)) r = Object.assign({}, r, { role: 'denied', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', reason: 'conflict' });
+  Object.assign(AUTH, { user: u, email: (u && u.email || '').toLowerCase(), role: r.role, tier: r.tier, world: r.world, tid: r.tid, siteIds: r.siteIds, kind: r.kind, memberId: r.memberId, emailVerified: r.emailVerified, reason: r.reason, retry: r.retry, ready: true });
+  if (u) console.info('[role]', r.tier, r.world, r.tid);
+}
+let AUTH_SEQ = 0;
+async function onUser(u) {
+  const seq = ++AUTH_SEQ;
+  if (!u || (AUTH.user && AUTH.user.uid !== u.uid)) P.reset();            // 다른 사람으로 바뀌면 world 도 처음으로(같은 사람이면 그대로 둔다)
+  const r = await resolveRole(u);
+  if (seq !== AUTH_SEQ) return;                                           // 더 새 로그인 변화가 있으면 이 결과는 버린다
+  applyRole(u, r);
+  if (AUTH.role === 'staff') SS.staffId = AUTH.memberId;
+  else if (AUTH.role === 'admin') SS.staffId = LS.get('rc-staff') || AUTH.memberId || '';
   if (u) { const w = AUTH_WAIT; AUTH_WAIT = []; w.forEach(f => f()); }
   if (!u) {
     unsubAll(); TICKETS = []; DATA_READY = false;
     if (S.full === 'customer') { try { await AUTHX.signInAnonymously(); } catch (e) { toast('접속하지 못했습니다. 새로 고쳐 주세요. (' + errCode(e) + ')'); } return; }
-  } else startSubs();
+  } else if (AUTH.world === 'tenant' && !TENANT_UI_READY) { unsubAll(); TICKETS = []; DATA_READY = false; }                       // 새 세계 화면이 준비되기 전에는 데이터를 읽지 않는다
+  else if ((AUTH.retry || AUTH.reason === 'unverified') && S.full !== 'customer') { unsubAll(); TICKETS = []; DATA_READY = false; }   // 인증 안내·다시 시도 화면에서는 데이터를 읽지 않는다
+  else startSubs();
   render();
-});
+}
+AUTHX.onAuthStateChanged(u => { onUser(u); });
 
 /* ================= 이벤트 연결 ================= */
 document.addEventListener('click', e => { const p = e.target.closest('.pen'); if (p) { e.preventDefault(); e.stopPropagation(); openPen(p); } }, true);
