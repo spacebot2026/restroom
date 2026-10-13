@@ -1078,7 +1078,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261012-1724';
+const BUILD = '20261013-1233';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1363,6 +1363,67 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const AUTHX = firebase.auth();
 const DB = firebase.firestore();
 const FV = firebase.firestore.FieldValue;
+
+/* ================= 경로 도우미 P (조각 2-A) =================
+   앱의 모든 Firestore 경로는 여기서만 만든다 — 이 블록 밖에서는 DB.doc( / DB.collection( 을 직접 부르지 않는다.
+   world 'legacy' 는 지금까지의 경로(학운공장·S01~S04)이고 한 글자도 바뀌지 않았다. 'tenant' 는 고객사 경로(tenants/{tid}/…)이며 2-D 가 켠다.
+   world 는 로그인 판정이 P.set 으로 한 번 정하고 로그아웃(P.reset) 전까지 바꾸지 않는다. 한 화면에서 두 세계를 섞어 읽지 않는다.
+   새 세계에서만 있는 경로를 옛 세계에서 부르거나 모양이 틀린 값(고객사 코드·현장 ID·문서 ID)을 주면 던지지 않고 null 을 돌려준다(호출부가 건너뛴다).
+   P.as(world, tid) = 지금 world 와 상관없이 경로만 만들어 보는 읽기 전용 보기(로그인 판정·운영자 화면용). */
+const TID_RE = /^[a-z][a-z0-9]{2,4}$/, SID_RE = /^S[0-9]{2,5}$/;
+const TID_RESERVED = ['admin', 'staff', 'api', 'www', 'test', 'root', 'demo', 'mail', 'app', 'dev', 'null'];   // 규칙 badTid 와 같은 목록
+const okTid = t => typeof t === 'string' && TID_RE.test(t);
+const okSid = s => typeof s === 'string' && SID_RE.test(s);
+const okSeg = s => typeof s === 'string' && s.length > 0 && s.length < 1500 && !s.includes('/') && s !== '.' && s !== '..';
+const P = {
+  world: 'legacy', tid: 't00', locked: false,
+  set(world, tid) {
+    tid = tid || 't00';
+    const want = world === 'tenant' ? tid : 't00';
+    if (P.locked) return P.world === world && P.tid === want;
+    if (!(world === 'legacy' || (world === 'tenant' && okTid(tid)))) return false;
+    P.world = world; P.tid = want; P.locked = true;
+    return true;
+  },
+  reset() { P.world = 'legacy'; P.tid = 't00'; P.locked = false; },
+  as(world, tid) { return Object.assign(Object.create(P), { world, tid: tid || 't00', locked: true }); },
+  _tn() { return this.world === 'tenant'; },
+  _p(base, ...segs) { return base && segs.every(okSeg) ? base + '/' + segs.join('/') : null; },
+  _tb() { return okTid(this.tid) ? 'tenants/' + this.tid : null; },
+  _sb(sid) { return okSid(sid) ? this._p(this._tb(), 'sites', sid) : null; },
+  _d(p) { return p ? DB.doc(p) : null; },
+  _c(p) { return p ? DB.collection(p) : null; },
+  // ---- 현장 아래 (옛: 최상위 컬렉션 / 새: tenants/{tid}/sites/{sid}/…) ----
+  tickets(sid) { return this._tn() ? this._c(this._p(this._sb(sid), 'tickets')) : DB.collection('tickets'); },
+  ticket(id, sid) { return this._tn() ? this._d(this._p(this._sb(sid), 'tickets', id)) : DB.doc('tickets/' + id); },
+  ticketAdmin(id, sid) { return this._tn() ? this._d(this._p(this._sb(sid), 'ticketAdmin', id)) : DB.doc('tickets/' + id); },   // 옛 세계: 관리자 메모는 접수 문서의 adminNote 필드
+  photo(pid, sid) { return this._tn() ? this._d(this._p(this._sb(sid), 'photos', pid)) : DB.doc('photos/' + pid); },
+  feedbackCol(sid) { return this._tn() ? this._c(this._p(this._sb(sid), 'feedback')) : DB.collection('feedback'); },
+  feedback(fid, sid) { return this._tn() ? this._d(this._p(this._sb(sid), 'feedback', fid)) : DB.doc('feedback/' + fid); },
+  roomOpen(rid, sid) { return this._tn() ? this._d(this._p(this._sb(sid), 'roomOpen', rid)) : null; },       // 새 세계에만 있음
+  siteCfg(sid) { return this._tn() ? this._d(this._p(this._sb(sid), 'siteCfg', 'ops')) : null; },           // 새 세계에만 있음
+  // ---- 고객사 아래 (옛: 최상위) ----
+  sitesCol() { return this._tn() ? this._c(this._p(this._tb(), 'sites')) : DB.collection('sites'); },
+  site(sid) { return this._tn() ? this._d(this._sb(sid)) : DB.doc('sites/' + sid); },
+  membersCol() { return this._tn() ? this._c(this._p(this._tb(), 'members')) : DB.collection('members'); },
+  member(mid) { return this._tn() ? this._d(this._p(this._tb(), 'members', mid)) : DB.doc('members/' + mid); },
+  staffCol() { return this._tn() ? this._c(this._p(this._tb(), 'staff')) : DB.collection('staff'); },
+  staff(email) { return this._tn() ? this._d(this._p(this._tb(), 'staff', email)) : DB.doc('staff/' + email); },
+  cfg(name) { return this._tn() ? ((name === 'ops' || name === 'ui') ? this._d(this._p(this._tb(), 'config', name)) : null) : DB.doc('config/' + name); },   // config/seed 는 새 세계에 없음
+  // ---- 전역 (세계와 무관) ----
+  loginV(key) { return DB.doc('loginV/' + key); },
+  notesCol() { return DB.collection('notes'); },
+  note(id) { return DB.doc('notes/' + id); },
+  noteShot(sid) { return DB.doc('noteShots/' + sid); },
+  // ---- 새 구조의 전역 문서 (새 세계 전용: 옛 세계에서는 null) ----
+  staffIndex(email) { return this._tn() && okSeg(email) ? DB.doc('staffIndex/' + email) : null; },
+  siteIndex(sid) { return this._tn() && okSid(sid) ? DB.doc('siteIndex/' + sid) : null; },
+  tenantsCol() { return this._tn() ? DB.collection('tenants') : null; },
+  tenantDoc(tid) { return this._tn() && okTid(tid) ? DB.doc('tenants/' + tid) : null; },
+  counters() { return this._tn() ? DB.doc('counters/site') : null; }
+};
+/* ================= 경로 도우미 P 끝 ================= */
+
 const ASSETS = null;
 const DL = { async save({ filename, data }) {
   const type = /\.csv$/.test(filename) ? 'text/csv;charset=utf-8' : /\.json$/.test(filename) ? 'application/json' : 'application/octet-stream';
@@ -1379,8 +1440,8 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = fal
 const errCode = e => (e && e.code) || '오류';
 function dispatch(evs) { MOUNTS.forEach(m => { try { m.refresh(evs || []); } catch (e) { console.error(e); } }); refreshDetail(); }
 const stripUndef = o => { Object.keys(o).forEach(k => { if (o[k] === undefined) delete o[k]; }); return o; };
-async function putTicket(t) { await DB.collection('tickets').doc(t.id).set(stripUndef(Object.assign({}, t))); trackTicket(t.id); }
-async function patchTicket(id, patch) { await DB.doc('tickets/' + id).update(stripUndef(Object.assign({}, patch))); }
+async function putTicket(t) { await P.ticket(t.id).set(stripUndef(Object.assign({}, t))); trackTicket(t.id); }
+async function patchTicket(id, patch) { await P.ticket(id).update(stripUndef(Object.assign({}, patch))); }
 function diffEvents(prev, next) {
   const pm = new Map(prev.map(t => [t.id, t])), ev = [];
   next.forEach(t => {
@@ -1396,7 +1457,7 @@ const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAA
 function loadPhoto(pid) {
   if (PHOTO_CACHE[pid] || PHOTO_LOADING.has(pid)) return;
   PHOTO_LOADING.add(pid);
-  DB.doc('photos/' + pid).get().then(s => { if (s.exists) { PHOTO_CACHE[pid] = s.data().data; dispatch([]); } }).catch(() => {}).finally(() => PHOTO_LOADING.delete(pid));
+  P.photo(pid).get().then(s => { if (s.exists) { PHOTO_CACHE[pid] = s.data().data; dispatch([]); } }).catch(() => {}).finally(() => PHOTO_LOADING.delete(pid));
 }
 async function toJpegData(img, maxEdge, maxLen) {
   const ow = img.naturalWidth, oh = img.naturalHeight, k = Math.min(1, maxEdge / Math.max(ow, oh));
@@ -1411,7 +1472,7 @@ async function storePhoto(blob) {
   let img; try { img = await loadImg(url0); } finally { URL.revokeObjectURL(url0); }
   const r = await toJpegData(img, 1600, 900000);
   const pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  await DB.doc('photos/' + pid).set({ data: r.data, w: r.w, h: r.h, ow: r.ow, oh: r.oh, at: Date.now(), uid: AUTH.user ? AUTH.user.uid : '' });
+  await P.photo(pid).set({ data: r.data, w: r.w, h: r.h, ow: r.ow, oh: r.oh, at: Date.now(), uid: AUTH.user ? AUTH.user.uid : '' });
   PHOTO_CACHE[pid] = r.data;
   return { pid, w: r.w, h: r.h, ow: r.ow, oh: r.oh, shrunk: r.shrunk };
 }
@@ -1453,7 +1514,7 @@ function completeTicket(t, { action, photo, note, by }) {
 function cancelTicket(id) { const t = tById(id); if (!t || t.status === 'done') return Promise.resolve(); return patchTicket(t.id, { status: 'cancel', log: addLog(t, '고객이 취소 (잘못 누름)') }, 'cancel'); }
 function reopenTicket(t) { return patchTicket(t.id, { status: 'new', ackAt: null, doneAt: null, reports: (t.reports || 1) + 1, reopened: (t.reopened || 0) + 1, log: addLog(t, '고객: 아직 그대로 · 다시 접수') }, 'new'); }
 async function addClean(roomId) {
-  try { await waitAuth(); await DB.doc('feedback/' + kstDate() + '_' + roomId).set({ day: kstDate(), roomId, n: FV.increment(1), at: Date.now() }, { merge: true }); } catch (e) { /* 무시 */ }
+  try { await waitAuth(); await P.feedback(kstDate() + '_' + roomId).set({ day: kstDate(), roomId, n: FV.increment(1), at: Date.now() }, { merge: true }); } catch (e) { /* 무시 */ }
 }
 function etaMin(code) { const d = TICKETS.filter(t => t.issue === code && t.status === 'done'); if (!d.length) return issueDef(code).sla; return Math.max(1, Math.round(d.reduce((a, t) => a + (t.doneAt - t.createdAt), 0) / d.length / M)); }
 
@@ -2140,7 +2201,7 @@ async function saveSite() {
   AS.savingSite = true;
   try {
     const prev = siteById(id);
-    await DB.doc('sites/' + id).set({ id, name, address, rooms, roomIds: rooms.map(r => r.id), order: prev ? (prev.order || 0) : SITES.length, at: Date.now(), by: AUTH.email });
+    await P.site(id).set({ id, name, address, rooms, roomIds: rooms.map(r => r.id), order: prev ? (prev.order || 0) : SITES.length, at: Date.now(), by: AUTH.email });
     AS.edit = null; AS.site = id; LS.set('rc-site', id); AS.selRoom = '';
     toast(`‘${name}’ 현장을 저장했습니다 · 화장실 ${rooms.length}곳 QR 준비됨`);
   } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
@@ -2151,7 +2212,7 @@ async function deleteSite() {
   const e = AS.edit; if (!e || !e.id) return;
   const n = TICKETS.filter(t => ((rById(t.roomId) || {}).site || t.siteId) === e.id).length;
   if (!await askConfirm(`‘${e.name}’ 현장을 지울까요? 이 현장의 QR이 모두 열리지 않게 됩니다.${n ? ' 접수 기록 ' + n + '건은 남습니다.' : ''}`, '현장 지우기')) return;
-  try { await DB.doc('sites/' + e.id).delete(); AS.edit = null; AS.site = ''; LS.del('rc-site'); toast('현장을 지웠습니다'); }
+  try { await P.site(e.id).delete(); AS.edit = null; AS.site = ''; LS.del('rc-site'); toast('현장을 지웠습니다'); }
   catch (err) { toast('지우지 못했습니다 (' + errCode(err) + ')'); }
   drawAdmNav(); drawAdmMain();
 }
@@ -2185,8 +2246,8 @@ async function addMember(name, email, role) {
   if (STAFF_ACL[email] && STAFF_ACL[email].memberId && STAFF.some(m => m.id === STAFF_ACL[email].memberId)) return 'skip';
   const id = newMemberId(), now = Date.now();
   const batch = DB.batch();
-  batch.set(DB.doc('members/' + id), { id, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
-  batch.set(DB.doc('staff/' + email), { memberId: id, name, at: now, by: AUTH.email });
+  batch.set(P.member(id), { id, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
+  batch.set(P.staff(email), { memberId: id, name, at: now, by: AUTH.email });
   await batch.commit();
   STAFF_ACL[email] = { memberId: id, name };
   return 'ok';
@@ -2204,7 +2265,7 @@ async function createLogin(id, pw, v) {
 const idTakenBy = id => Object.keys(STAFF_ACL).filter(k => loginIdOf(k) === id).map(k => (STAFF_ACL[k] || {}).memberId);
 // 새 계정을 만든다. 같은 ID 의 계정이 이미 있으면(예전에 지운 사람·비밀번호 초기화) 다음 버전으로 만든다. 만든 버전을 돌려준다
 async function createLoginAuto(id, pw) {
-  let v0 = 0; try { const d = await DB.doc('loginV/' + loginBase(id)).get(); if (d.exists) v0 = +((d.data() || {}).v) || 0; } catch (e) { /* 없으면 1판부터 */ }
+  let v0 = 0; try { const d = await P.loginV(loginBase(id)).get(); if (d.exists) v0 = +((d.data() || {}).v) || 0; } catch (e) { /* 없으면 1판부터 */ }
   const start = v0 + 1;
   for (let v = start; v < start + 8; v++) {
     try { await createLogin(id, pw, v); return v; }
@@ -2212,7 +2273,7 @@ async function createLoginAuto(id, pw) {
   }
   throw { code: 'auth/email-already-in-use' };
 }
-const saveVerOps = (batch, id, v) => { if (v > 1) batch.set(DB.doc('loginV/' + loginBase(id)), { v, at: Date.now() }); };
+const saveVerOps = (batch, id, v) => { if (v > 1) batch.set(P.loginV(loginBase(id)), { v, at: Date.now() }); };
 async function addPwMember(name, id, role, pw) {
   name = String(name || '').trim().slice(0, 20); id = normLoginId(id);
   if (!name || !validLoginId(id)) return { r: 'bad' };
@@ -2222,8 +2283,8 @@ async function addPwMember(name, id, role, pw) {
   const em = loginEmail(id, v), mid = newMemberId(), now = Date.now();
   try {
     const batch = DB.batch();
-    batch.set(DB.doc('members/' + mid), { id: mid, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
-    batch.set(DB.doc('staff/' + em), { memberId: mid, name, kind: 'pw', at: now, by: AUTH.email });
+    batch.set(P.member(mid), { id: mid, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
+    batch.set(P.staff(em), { memberId: mid, name, kind: 'pw', at: now, by: AUTH.email });
     saveVerOps(batch, id, v);
     await batch.commit();
   } catch (e) { return { r: 'err', msg: '계정은 만들어졌지만 담당자로 저장하지 못했습니다 (' + errCode(e) + '). 한 번 더 시도해 주세요', code: errCode(e) }; }
@@ -2234,8 +2295,8 @@ async function addPwMember(name, id, role, pw) {
 async function setMemberLogin(m, id, pw) {
   const v = await createLoginAuto(id, pw), em = loginEmail(id, v), old = memberLogins(m.id).filter(loginIdOf);
   const batch = DB.batch();
-  old.forEach(k => batch.delete(DB.doc('staff/' + k)));
-  batch.set(DB.doc('staff/' + em), { memberId: m.id, name: m.name, kind: 'pw', at: Date.now(), by: AUTH.email });
+  old.forEach(k => batch.delete(P.staff(k)));
+  batch.set(P.staff(em), { memberId: m.id, name: m.name, kind: 'pw', at: Date.now(), by: AUTH.email });
   saveVerOps(batch, id, v);
   await batch.commit();
   old.forEach(k => { delete STAFF_ACL[k]; });
@@ -2277,13 +2338,13 @@ async function addMembersBulk() {
   if (creds.length) showCreds(creds);
 }
 async function updateMember(mid, patch) {
-  try { await DB.doc('members/' + mid).update(patch); } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
+  try { await P.member(mid).update(patch); } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
 }
 async function deleteMember(mid) {
   const m = STAFF.find(x => x.id === mid); if (!m) return;
   const lg = memberLogins(mid);
   if (!await askConfirm(`${m.name} 님을 담당자에서 뺄까요?${lg.length ? ' ' + lg.map(loginLabel).join(', ') + ' 로그인도 막힙니다.' : ''}${lg.some(loginIdOf) ? ' (같은 ID는 다시 쓸 수 없습니다)' : ''}`, '빼기')) return;
-  try { const batch = DB.batch(); batch.delete(DB.doc('members/' + mid)); lg.forEach(k => batch.delete(DB.doc('staff/' + k))); await batch.commit(); toast('뺐습니다'); }
+  try { const batch = DB.batch(); batch.delete(P.member(mid)); lg.forEach(k => batch.delete(P.staff(k))); await batch.commit(); toast('뺐습니다'); }
   catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); }
 }
 
@@ -2394,7 +2455,7 @@ function drawSettings(main) {
     </div>`;
 }
 function saveOps() {
-  if (DB) return DB.doc('config/ops').set(JSON.parse(JSON.stringify(OPS))).catch(e => toast('설정을 저장하지 못했습니다 (' + errCode(e) + ')'));
+  if (DB) return P.cfg('ops').set(JSON.parse(JSON.stringify(OPS))).catch(e => toast('설정을 저장하지 못했습니다 (' + errCode(e) + ')'));
   dispatch([]); return Promise.resolve();
 }
 function addIssue() {
@@ -2544,14 +2605,14 @@ async function demoClear() {
   if (!await askConfirm('접수 기록·‘깨끗해요’ 기록·첨부 사진을 모두 지울까요? 되돌릴 수 없습니다. 현장·담당자·화면 편집 설정·화면 메모는 남습니다.', '모두 지우기')) return;
   toast('지우는 중…');
   try {
-    const snap = await DB.collection('tickets').get();
+    const snap = await P.tickets().get();
     for (const d of snap.docs) {
       const t = d.data();
-      for (const p of [t.photo, t.afterPhoto]) { if (p && p.pid) { try { await DB.doc('photos/' + p.pid).delete(); } catch (e) { /* 무시 */ } } }
-      await DB.doc('tickets/' + d.id).delete();
+      for (const p of [t.photo, t.afterPhoto]) { if (p && p.pid) { try { await P.photo(p.pid).delete(); } catch (e) { /* 무시 */ } } }
+      await P.ticket(d.id).delete();
     }
-    const fs = await DB.collection('feedback').get();
-    for (const d of fs.docs) await DB.doc('feedback/' + d.id).delete();
+    const fs = await P.feedbackCol().get();
+    for (const d of fs.docs) await P.feedback(d.id).delete();
   } catch (e) { toast('일부를 지우지 못했습니다 (' + errCode(e) + ')'); return; }
   toast('접수 기록을 모두 지웠습니다');
   if (AS.sub === 'settings') drawAdmMain();
@@ -2583,7 +2644,7 @@ async function admClick(e) {
   else if (act === 'memBulk') addMembersBulk();
   else if (act === 'memPw') { const tr = b.closest('[data-mid]'); if (tr) openPwModal(tr.dataset.mid); }
   else if (act === 'memDel') { const tr = b.closest('[data-mid]'); if (tr) deleteMember(tr.dataset.mid); }
-  else if (act === 'aclDel') { const em = b.dataset.email; if (await askConfirm(loginLabel(em) + ' 의 담당자 로그인을 막을까요?', '빼기')) { try { await DB.doc('staff/' + em).delete(); } catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); } } }
+  else if (act === 'aclDel') { const em = b.dataset.email; if (await askConfirm(loginLabel(em) + ' 의 담당자 로그인을 막을까요?', '빼기')) { try { await P.staff(em).delete(); } catch (err) { toast('빼지 못했습니다 (' + errCode(err) + ')'); } } }
   else if (act === 'demoClear') demoClear();
   else if (act === 'delIssue') {
     const code = b.dataset.code;
@@ -2708,7 +2769,7 @@ async function saveUI() {
   if (!DB) return;
   if (uiSaving) { uiDirty = true; return; }
   uiSaving = true;
-  try { await DB.doc('config/ui').set(JSON.parse(JSON.stringify(ui))); } catch (e) { toast('화면 설정을 저장하지 못했습니다 (' + errCode(e) + ')'); }
+  try { await P.cfg('ui').set(JSON.parse(JSON.stringify(ui))); } catch (e) { toast('화면 설정을 저장하지 못했습니다 (' + errCode(e) + ')'); }
   uiSaving = false;
   if (uiDirty) { uiDirty = false; saveUI(); }
 }
@@ -2856,14 +2917,14 @@ async function saveMemo() {
       const img = await loadImg(s.url);
       const r = await toJpegData(img, 4096, 900000);
       sid = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      await DB.doc('noteShots/' + sid).set({ data: r.data, w: r.w, h: r.h, ow: r.ow, oh: r.oh, name: s.name, at: s.at });
+      await P.noteShot(sid).set({ data: r.data, w: r.w, h: r.h, ow: r.ow, oh: r.oh, name: s.name, at: s.at });
       SHOT_CACHE[sid] = r.data;
     } catch (e) { sid = null; LOCALSHOT.set(s.at + s.name, s.url); }
     shots.push({ sid, name: s.name, mime: 'image/jpeg', kind: s.kind, bytes: s.bytes, at: s.at, w: s.w, h: s.h, thumb: s.thumb });
   }
   const memo = { id: uuid(), at: new Date().toISOString(), build: BUILD, page: MEMO.page, pageName: MEMO.pageName, scope: MEMO.page.split('.')[0], target: MEMO.target, key: MEMO.key, label: MEMO.label, text, shots, done: false, dev: DEVICE };
   if (DB) {
-    try { await DB.collection('notes').doc(memo.id).set(memo); }
+    try { await P.note(memo.id).set(memo); }
     catch (e) { btn.disabled = false; mpMsg('저장하지 못했습니다 (' + errCode(e) + '). 다시 눌러 주세요.'); return; }
   } else NOTES.unshift(memo);
   closePop('memoPop'); updateEditbar(); drawMemoList();
@@ -2886,7 +2947,7 @@ document.addEventListener('paste', e => {
 });
 const ML = { f: 'page', showDone: false };
 const SHOT_CACHE = {};
-function loadShot(sid) { if (!sid || SHOT_CACHE[sid] !== undefined) return; SHOT_CACHE[sid] = ''; DB.doc('noteShots/' + sid).get().then(d => { if (d.exists) { SHOT_CACHE[sid] = d.data().data; drawMemoList(); } }).catch(() => {}); }
+function loadShot(sid) { if (!sid || SHOT_CACHE[sid] !== undefined) return; SHOT_CACHE[sid] = ''; P.noteShot(sid).get().then(d => { if (d.exists) { SHOT_CACHE[sid] = d.data().data; drawMemoList(); } }).catch(() => {}); }
 const shotSrc = s => { if (s.sid) { if (SHOT_CACHE[s.sid]) return SHOT_CACHE[s.sid]; loadShot(s.sid); return s.thumb || ''; } return LOCALSHOT.get(s.at + s.name) || s.thumb || ''; };
 function openMemoList() {
   const pop = $('#memoList');
@@ -2917,20 +2978,20 @@ $('#memoList').addEventListener('click', async e => {
   const b = e.target.closest('[data-ma]'); if (!b) return;
   const item = b.closest('[data-nid]'), n = NOTES.find(x => x.id === item.dataset.nid); if (!n) return;
   if (b.dataset.ma === 'done') {
-    if (DB) { try { await DB.doc('notes/' + n.id).update({ done: !n.done }); } catch (err) { toast('바꾸지 못했습니다'); } }
+    if (DB) { try { await P.note(n.id).update({ done: !n.done }); } catch (err) { toast('바꾸지 못했습니다'); } }
     else { n.done = !n.done; drawMemoList(); updateEditbar(); }
   } else if (b.dataset.ma === 'del') {
     if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = '정말 지우기'; setTimeout(() => { if (b.isConnected) { b.classList.remove('armed'); b.textContent = '지우기'; } }, 4000); return; }
     if (DB) {
-      try { await DB.doc('notes/' + n.id).delete(); } catch (err) { toast('지우지 못했습니다'); return; }
-      for (const s of (n.shots || [])) { if (s.sid) { try { await DB.doc('noteShots/' + s.sid).delete(); } catch (err) { /* 무시 */ } } }
+      try { await P.note(n.id).delete(); } catch (err) { toast('지우지 못했습니다'); return; }
+      for (const s of (n.shots || [])) { if (s.sid) { try { await P.noteShot(s.sid).delete(); } catch (err) { /* 무시 */ } } }
     } else { NOTES = NOTES.filter(x => x !== n); drawMemoList(); updateEditbar(); }
   }
 });
 async function exportNotes() {
   toast('캡처까지 모으는 중…');
   const shots = {};
-  for (const n of NOTES) for (const s of (n.shots || [])) { if (s.sid && !shots[s.sid]) { try { const d = await DB.doc('noteShots/' + s.sid).get(); if (d.exists) shots[s.sid] = d.data().data; } catch (e) { /* 무시 */ } } }
+  for (const n of NOTES) for (const s of (n.shots || [])) { if (s.sid && !shots[s.sid]) { try { const d = await P.noteShot(s.sid).get(); if (d.exists) shots[s.sid] = d.data().data; } catch (e) { /* 무시 */ } } }
   const data = JSON.stringify({ exported_at: new Date().toISOString(), build: BUILD, ui, notes: NOTES, shots }, null, 2);
   try { await DL.save({ filename: '화면메모_' + kstDate() + '.json', data }); } catch (e) { if (e && e.code !== 'declined') toast('내보내지 못했습니다 (' + errCode(e) + ')'); }
 }
@@ -2960,7 +3021,7 @@ document.addEventListener('submit', async e => {
   if (!validLoginId(id)) { show('ID 또는 비밀번호가 맞지 않습니다'); return; }
   show(''); busy(true);
   // 관리자가 비밀번호를 초기화한 ID 는 새 계정(버전)이므로, 공개된 버전 표(loginV, ID 를 알아야만 읽힘)를 먼저 읽는다
-  let v = 1; try { const d = await DB.doc('loginV/' + loginBase(id)).get(); if (d.exists) v = Math.max(1, +((d.data() || {}).v) || 1); } catch (er) { /* 읽지 못하면 1판 */ }
+  let v = 1; try { const d = await P.loginV(loginBase(id)).get(); if (d.exists) v = Math.max(1, +((d.data() || {}).v) || 1); } catch (er) { /* 읽지 못하면 1판 */ }
   try { await AUTHX.signInWithEmailAndPassword(loginEmail(id, v), pw); }
   catch (err) { show(LOGIN_ERR[errCode(err)] || ('로그인하지 못했습니다 (' + errCode(err) + ')')); busy(false); }
 });
@@ -3034,20 +3095,20 @@ async function ensureSeed() {
   if (AUTH.role !== 'admin' || !SITES_READY || !MEMBERS_READY || SEEDING || SEED_CHECKED) return;
   SEEDING = true;
   try {
-    const flag = await DB.doc('config/seed').get();
+    const flag = await P.cfg('seed').get();
     if (!flag.exists) {
       if (!SITES.length) {
         const rooms = SEED_SITE.rooms.map(([floor, type, stalls, urinals]) => ({ id: `${SEED_SITE.id}-${floor}-${type}1`, floor, type, n: 1, stalls, urinals }));
-        await DB.doc('sites/' + SEED_SITE.id).set({ id: SEED_SITE.id, name: SEED_SITE.name, address: SEED_SITE.address, rooms, roomIds: rooms.map(r => r.id), order: 0, at: Date.now(), by: 'seed' });
+        await P.site(SEED_SITE.id).set({ id: SEED_SITE.id, name: SEED_SITE.name, address: SEED_SITE.address, rooms, roomIds: rooms.map(r => r.id), order: 0, at: Date.now(), by: 'seed' });
       }
       const named = MEMBERS_RAW.find(m => m.name === '조현행');
-      if (!MEMBERS_RAW.some(m => m.owner) && named) await DB.doc('members/' + named.id).update({ owner: true });
-      else if (!MEMBERS_RAW.some(m => m.owner)) await DB.doc('members/' + OWNER_ID).set({ id: OWNER_ID, name: '조현행', role: '청소', sites: [], floors: [], owner: true, order: 0, at: Date.now() });
-      await DB.doc('config/seed').set({ at: Date.now(), by: AUTH.email, site: SEED_SITE.id, owner: OWNER_ID });
+      if (!MEMBERS_RAW.some(m => m.owner) && named) await P.member(named.id).update({ owner: true });
+      else if (!MEMBERS_RAW.some(m => m.owner)) await P.member(OWNER_ID).set({ id: OWNER_ID, name: '조현행', role: '청소', sites: [], floors: [], owner: true, order: 0, at: Date.now() });
+      await P.cfg('seed').set({ at: Date.now(), by: AUTH.email, site: SEED_SITE.id, owner: OWNER_ID });
     }
     const owner = MEMBERS_RAW.find(m => m.owner) || MEMBERS_RAW.find(m => m.name === '조현행') || (flag.exists ? null : { id: OWNER_ID });
     if (owner && !AUTH.memberId && AUTH.email) {
-      await DB.doc('staff/' + AUTH.email).set({ memberId: owner.id, name: owner.name || '조현행', at: Date.now(), by: 'seed' });
+      await P.staff(AUTH.email).set({ memberId: owner.id, name: owner.name || '조현행', at: Date.now(), by: 'seed' });
       AUTH.memberId = owner.id;
       if (!SS.staffId) { SS.staffId = owner.id; if (SS.draw) SS.draw(); }
     }
@@ -3067,37 +3128,37 @@ function onMembersChanged() {
 function unsubAll() { UNSUBS.forEach(u => { try { u(); } catch (e) { /* 무시 */ } }); UNSUBS = []; Object.keys(TRACK_UNSUB).forEach(k => delete TRACK_UNSUB[k]); CUST_MERGE = null; }
 function trackTicket(id) {
   if (!id || TRACK_UNSUB[id] || !AUTH.user || AUTH.role === 'admin' || AUTH.role === 'staff') return;
-  TRACK_UNSUB[id] = DB.doc('tickets/' + id).onSnapshot(s => { if (s.exists) TRACKED[id] = s.data(); else delete TRACKED[id]; if (CUST_MERGE) CUST_MERGE(); }, () => {});
+  TRACK_UNSUB[id] = P.ticket(id).onSnapshot(s => { if (s.exists) TRACKED[id] = s.data(); else delete TRACKED[id]; if (CUST_MERGE) CUST_MERGE(); }, () => {});
   UNSUBS.push(TRACK_UNSUB[id]);
 }
 function startSubs() {
   unsubAll(); DATA_READY = false; TICKETS = []; MEMBERS_READY = false; SEED_CHECKED = false;
-  UNSUBS.push(DB.collection('sites').onSnapshot(q => {
+  UNSUBS.push(P.sitesCol().onSnapshot(q => {
     SITES = q.docs.map(d => Object.assign({ id: d.id }, d.data())); rebuildRooms(); SITES_READY = true;
     if (MEMBERS_RAW.length) setMembers(MEMBERS_RAW);
     onSitesChanged(); ensureSeed();
   }, e => { SITES_READY = true; toast('현장 정보를 불러오지 못했습니다 (' + errCode(e) + ')'); render(); }));
-  UNSUBS.push(DB.doc('config/ops').onSnapshot(s => { applyOps(s.exists ? s.data() : null); dispatch([]); if (S.view === 'admin' && AS.sub === 'settings' && AS.el && !S.full) drawAdmMain(); }, () => {}));
-  UNSUBS.push(DB.doc('config/ui').onSnapshot(s => {
+  UNSUBS.push(P.cfg('ops').onSnapshot(s => { applyOps(s.exists ? s.data() : null); dispatch([]); if (S.view === 'admin' && AS.sub === 'settings' && AS.el && !S.full) drawAdmMain(); }, () => {}));
+  UNSUBS.push(P.cfg('ui').onSnapshot(s => {
     if (uiSaving || uiDirty || (s.metadata && s.metadata.hasPendingWrites)) return;
     const next = normUI(s.exists ? s.data() : null);
     if (JSON.stringify(next) !== JSON.stringify(ui)) { ui = next; rerender(); }
   }, () => {}));
   if (AUTH.role === 'admin' || AUTH.role === 'staff') {
-    UNSUBS.push(DB.collection('tickets').orderBy('createdAt', 'desc').limit(600).onSnapshot(q => {
+    UNSUBS.push(P.tickets().orderBy('createdAt', 'desc').limit(600).onSnapshot(q => {
       const next = q.docs.map(d => d.data());
       const ev = DATA_READY ? diffEvents(TICKETS, next) : [];
       TICKETS = next; DATA_READY = true; dispatch(ev);
     }, e => toast('접수 기록을 불러오지 못했습니다 (' + errCode(e) + ')')));
-    UNSUBS.push(DB.collection('members').onSnapshot(q => { MEMBERS_RAW = q.docs.map(d => Object.assign({ id: d.id }, d.data())); MEMBERS_READY = true; setMembers(MEMBERS_RAW); onMembersChanged(); ensureSeed(); }, () => {}));
-    UNSUBS.push(DB.collection('feedback').onSnapshot(q => {
+    UNSUBS.push(P.membersCol().onSnapshot(q => { MEMBERS_RAW = q.docs.map(d => Object.assign({ id: d.id }, d.data())); MEMBERS_READY = true; setMembers(MEMBERS_RAW); onMembersChanged(); ensureSeed(); }, () => {}));
+    UNSUBS.push(P.feedbackCol().onSnapshot(q => {
       const f = {}, day = kstDate();
       q.docs.forEach(d => { const x = d.data(); if (x.day === day) f[x.roomId] = x.n || 0; });
       FEEDBACK = f; dispatch([]);
     }, () => {}));
     if (AUTH.role === 'admin') {
-      UNSUBS.push(DB.collection('notes').orderBy('at', 'desc').limit(500).onSnapshot(q => { NOTES = q.docs.map(d => Object.assign({}, d.data(), { id: d.id })); updateEditbar(); drawMemoList(); }, () => {}));
-      UNSUBS.push(DB.collection('staff').onSnapshot(q => { STAFF_ACL = {}; q.docs.forEach(d => { STAFF_ACL[d.id] = d.data() || {}; }); if (!S.full && S.view === 'admin' && AS.sub === 'staff' && AS.el) drawAdmMain(); }, () => {}));
+      UNSUBS.push(P.notesCol().orderBy('at', 'desc').limit(500).onSnapshot(q => { NOTES = q.docs.map(d => Object.assign({}, d.data(), { id: d.id })); updateEditbar(); drawMemoList(); }, () => {}));
+      UNSUBS.push(P.staffCol().onSnapshot(q => { STAFF_ACL = {}; q.docs.forEach(d => { STAFF_ACL[d.id] = d.data() || {}; }); if (!S.full && S.view === 'admin' && AS.sub === 'staff' && AS.el) drawAdmMain(); }, () => {}));
     }
   } else {
     const parts = { new: [], going: [] }, got = { new: false, going: false };
@@ -3110,7 +3171,7 @@ function startSubs() {
       const ev = DATA_READY ? diffEvents(TICKETS, next) : [];
       TICKETS = next; DATA_READY = true; dispatch(ev);
     };
-    ['new', 'going'].forEach(stt => UNSUBS.push(DB.collection('tickets').where('status', '==', stt).onSnapshot(q => { parts[stt] = q.docs.map(d => d.data()); got[stt] = true; CUST_MERGE(); }, e => { got[stt] = true; if (CUST_MERGE) CUST_MERGE(); })));
+    ['new', 'going'].forEach(stt => UNSUBS.push(P.tickets().where('status', '==', stt).onSnapshot(q => { parts[stt] = q.docs.map(d => d.data()); got[stt] = true; CUST_MERGE(); }, e => { got[stt] = true; if (CUST_MERGE) CUST_MERGE(); })));
     if (S.fullRoom) { const last = LS.get('rc-last-' + S.fullRoom); if (last) trackTicket(last); }
     if (QS.res && QS.res.tid) trackTicket(QS.res.tid);
   }
@@ -3124,8 +3185,8 @@ AUTHX.onAuthStateChanged(async u => {
     if (u.isAnonymous) role = 'customer';
     else if (!u.emailVerified && !isPwUser(u)) role = 'denied';
     else {
-      if (!isPwUser(u)) { try { await DB.collection('notes').limit(1).get(); role = 'admin'; } catch (e) { role = ''; } } else role = '';
-      try { const d = await DB.doc('staff/' + AUTH.email).get(); if (d.exists) { memberId = (d.data() || {}).memberId || ''; if (!role) role = 'staff'; } } catch (e2) { /* 무시 */ }
+      if (!isPwUser(u)) { try { await P.notesCol().limit(1).get(); role = 'admin'; } catch (e) { role = ''; } } else role = '';
+      try { const d = await P.staff(AUTH.email).get(); if (d.exists) { memberId = (d.data() || {}).memberId || ''; if (!role) role = 'staff'; } } catch (e2) { /* 무시 */ }
       if (!role) role = 'denied';
     }
   }
