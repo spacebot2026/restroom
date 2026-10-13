@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261013-1351';
+const BUILD = '20261013-1831';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -2356,14 +2356,19 @@ function checkStaffShape(role, siteIds) {                                 // 규
   return '';
 }
 // 실제 이메일 계정 발급. items = [{ name, email, role, siteIds, st? }], opt = { first: true }(운영자의 첫 HQ 지정: 1명만).
-// 실행 순서: ②Auth 계정(이미 있으면 그대로 씀) → ④한 배치(staff + staffIndex [+ meta/firstHq | tenants.counts.staff]) → ③재설정 메일.
+// 실행 순서: ②Auth 계정(이미 가입된 이메일이면 그 이메일에서 멈춘다) → ④한 배치(staff + staffIndex [+ meta/firstHq | tenants.counts.staff]) → ③재설정 메일.
 // (메일을 배치 뒤에 보내는 이유: 서버가 거부한 등록에는 초대 메일이 나가지 않는다.) st 는 재시도 상태 — 같은 st 로 다시 부르면 끝낸 단계는 건너뛴다.
+// 이메일마다 결과를 따로 돌려준다: result 'ok' | 'email-in-use' | 'failed' (ok 는 result === 'ok').
+//  · email-in-use: 이미 가입된 이메일(auth/email-already-in-use). 앱은 그 계정이 본인 것인지 남이 비밀번호를 알고 미리 만든 미인증 계정인지 알 수 없다(관리자급의 증명은 규칙의 email_verified 하나뿐).
+//    그래서 그 계정을 쓰지 않고 4·3 단계로 가지 않는다 — 기존 계정은 한 글자도 바뀌지 않는다(감사 F-1). 배치 중 일부만 멈추면 그 이메일만 건너뛰고 나머지는 진행한다.
+//  · 4 단계가 실패하면(규칙 거부·네트워크) 이 호출이 방금 만든 계정만 같은 보조 인스턴스에서 user.delete() 로 지운다(감사 R-3) — 다시 시도하면 2 단계부터 처음부터 한다.
+//    지우기마저 실패하면 던지지 않고 console.warn('[issue] cleanup-failed', 코드) + 결과의 cleanup:'failed' (그때 재시도는 email-in-use 로 멈춘다). 4 단계가 성공하고 3 단계(메일)만 실패하면 계정·staff 는 유지한다.
 async function issueMailBatch(tid, items, opt) {
   opt = opt || {}; const first = !!opt.first, res = [];
   const me = AUTH.user;
-  const fail = (it, code, stage) => { const r = { email: it.email, ok: false, stage: stage || 'check', code, st: it.st }; res.push(r); return r; };
-  if (!okTid(tid)) return items.map(it => ({ email: it.email, ok: false, stage: 'check', code: 'bad-tid' }));
-  if (!me || !UID_RE.test(me.uid || '')) return items.map(it => ({ email: it.email, ok: false, stage: 'check', code: 'no-uid' }));
+  const fail = (it, code, stage) => { const r = { email: it.email, ok: false, result: 'failed', stage: stage || 'check', code, st: it.st }; res.push(r); return r; };
+  if (!okTid(tid)) return items.map(it => ({ email: it.email, ok: false, result: 'failed', stage: 'check', code: 'bad-tid' }));
+  if (!me || !UID_RE.test(me.uid || '')) return items.map(it => ({ email: it.email, ok: false, result: 'failed', stage: 'check', code: 'no-uid' }));
   const T = P.as('tenant', tid), todo = [];
   for (const raw of items) {
     const it = { name: String(raw.name || '').trim().slice(0, 40), email: normMail(raw.email), role: raw.role, siteIds: Array.isArray(raw.siteIds) ? raw.siteIds.slice() : [], st: raw.st || {} };
@@ -2373,37 +2378,53 @@ async function issueMailBatch(tid, items, opt) {
     if (!tierCan.mail(tid, it.role, first)) { fail(it, 'forbidden'); continue; }
     todo.push(it);
   }
-  if (first && todo.length > 1) return items.map(it => ({ email: normMail(it.email), ok: false, stage: 'check', code: 'first-hq-one' }));
-  for (let i = 0; i < todo.length; i += MAIL_BATCH) {
-    const chunk = todo.slice(i, i + MAIL_BATCH), live = [];
-    for (const it of chunk) {                                             // ② Auth 계정
-      if (!it.st.authDone) {
-        const a = pwApp().auth();
-        try { await a.createUserWithEmailAndPassword(it.email, genStrongPw()); it.st.authDone = true; }
-        catch (e) { if (errCode(e) === 'auth/email-already-in-use') { it.st.authDone = true; it.st.reused = true; } else { res.push({ email: it.email, ok: false, stage: 'auth', code: errCode(e), st: it.st }); continue; } }
-        finally { try { await a.signOut(); } catch (e) { /* 무시 */ } }
-      }
-      live.push(it);
-    }
-    const toWrite = live.filter(it => !it.st.written);
-    if (toWrite.length) {                                                 // ④ 한 배치
-      try {
-        const batch = DB.batch(), now = Date.now();
-        for (const it of toWrite) {
-          batch.set(T.staff(it.email), { role: it.role, siteIds: it.siteIds, name: it.name, kind: 'mail', active: true, at: now, byUid: me.uid });
-          batch.set(T.staffIndex(it.email), { tid });
+  if (first && todo.length > 1) return items.map(it => ({ email: normMail(it.email), ok: false, result: 'failed', stage: 'check', code: 'first-hq-one' }));
+  const made = new Map();                                                 // 이 호출이 방금 만든 Auth 계정(이메일 → user). 4 단계가 실패하면 이것만 지운다
+  let touched = false;                                                    // 보조 인스턴스를 쓴 적이 있나(검사 단계에서 모두 거부되면 만들지도 로그아웃하지도 않는다)
+  try {
+    for (let i = 0; i < todo.length; i += MAIL_BATCH) {
+      const chunk = todo.slice(i, i + MAIL_BATCH), live = [];
+      for (const it of chunk) {                                           // ② Auth 계정
+        if (!it.st.authDone) {
+          try { touched = true; const cred = await pwApp().auth().createUserWithEmailAndPassword(it.email, genStrongPw()); it.st.authDone = true; made.set(it.email, cred.user); }
+          catch (e) {
+            const c = errCode(e);
+            if (c === 'auth/email-already-in-use') res.push({ email: it.email, ok: false, result: 'email-in-use', stage: 'auth', code: 'email-in-use', st: it.st });   // 멈춘다: 그 계정을 쓰지 않고 4·3 단계로 가지 않는다
+            else res.push({ email: it.email, ok: false, result: 'failed', stage: 'auth', code: c, st: it.st });
+            continue;
+          }
         }
-        if (first) batch.set(T.meta('firstHq'), { at: now });
-        else batch.update(T.tenantDoc(tid), { 'counts.staff': FV.increment(toWrite.length) });   // OP 의 첫 HQ 배치에는 counts 갱신이 없다(규칙상 OP 는 counts 를 못 고침)
-        await batch.commit();
-        toWrite.forEach(it => { it.st.written = true; });
-      } catch (e) { toWrite.forEach(it => res.push({ email: it.email, ok: false, stage: 'write', code: errCode(e), st: it.st })); continue; }
+        live.push(it);
+      }
+      const toWrite = live.filter(it => !it.st.written);
+      if (toWrite.length) {                                               // ④ 한 배치
+        try {
+          const batch = DB.batch(), now = Date.now();
+          for (const it of toWrite) {
+            batch.set(T.staff(it.email), { role: it.role, siteIds: it.siteIds, name: it.name, kind: 'mail', active: true, at: now, byUid: me.uid });
+            batch.set(T.staffIndex(it.email), { tid });
+          }
+          if (first) batch.set(T.meta('firstHq'), { at: now });
+          else batch.update(T.tenantDoc(tid), { 'counts.staff': FV.increment(toWrite.length) });   // OP 의 첫 HQ 배치에는 counts 갱신이 없다(규칙상 OP 는 counts 를 못 고침)
+          await batch.commit();
+          toWrite.forEach(it => { it.st.written = true; });
+        } catch (e) {
+          const code = errCode(e);
+          for (const it of toWrite) {                                     // 이 호출이 방금 만든 계정만 지운다(남이 만든 계정·이전 호출의 계정은 건드리지 않는다)
+            const u = made.get(it.email); made.delete(it.email); it.st.authDone = false;
+            let cleanup = '';
+            if (u) { try { await u.delete(); cleanup = 'deleted'; } catch (de) { cleanup = 'failed'; console.warn('[issue] cleanup-failed', errCode(de)); } }
+            res.push({ email: it.email, ok: false, result: 'failed', stage: 'write', code, cleanup, st: it.st });
+          }
+          continue;
+        }
+      }
+      for (const it of live) {                                            // ③ 재설정 메일(받은 사람이 자기 비밀번호를 정한다)
+        if (!it.st.mailed) { try { touched = true; await pwApp().auth().sendPasswordResetEmail(it.email); it.st.mailed = true; } catch (e) { it.st.mailCode = errCode(e); } }
+        res.push({ email: it.email, ok: true, result: 'ok', mailed: !!it.st.mailed, mailCode: it.st.mailCode || '', st: it.st });
+      }
     }
-    for (const it of live) {                                              // ③ 재설정 메일(받은 사람이 자기 비밀번호를 정한다)
-      if (!it.st.mailed) { try { await pwApp().auth().sendPasswordResetEmail(it.email); it.st.mailed = true; } catch (e) { it.st.mailCode = errCode(e); } }
-      res.push({ email: it.email, ok: true, mailed: !!it.st.mailed, reused: !!it.st.reused, mailCode: it.st.mailCode || '', st: it.st });
-    }
-  }
+  } finally { if (touched) { try { await pwApp().auth().signOut(); } catch (e) { /* 무시 */ } } }   // 보조 인스턴스는 끝나면 로그아웃(발급자의 로그인에는 영향 없음 — E-B3)
   return res;
 }
 const issueMail = async (tid, item, opt) => (await issueMailBatch(tid, [item], opt))[0];
@@ -2576,6 +2597,8 @@ async function onModalClick(e) {
 const TN = { list: null, loading: false, err: '', counter: undefined, cerr: '', busy: false, st: {} };
 const TN_RANGE = { sites: [0, 10000, 10, '현장 수 한도'], staff: [0, 100000, 100, '담당자 수 한도'], retentionDays: [1, 3650, 365, '보관 일수'] };   // [최소, 최대, 기본값, 이름] — 규칙 limitsOk 와 같은 범위
 const HQ_DENIED = '지정하지 못했습니다. 이 고객사에 이미 본사 관리자가 있거나, 이 이메일이 이미 다른 고객사에 등록돼 있거나, 운영자 이메일일 수 있습니다. 추가 본사 관리자는 본사 관리자가 만듭니다';   // 원인을 가르지 않는다(앱은 미리 확인할 수 없다)
+const HQ_EMAIL_IN_USE = '이 이메일은 이미 가입돼 있어 지정하지 않았습니다. 본인 계정이 아닐 수 있어 안전을 위해 멈췄습니다. Firebase 콘솔 → Authentication → 사용자에서 이 이메일의 주인을 먼저 확인하세요. 아무도 쓰지 않는 계정이 확실할 때만 삭제하고 다시 지정하고, 이미 다른 고객사 관리자나 운영자 계정이면 삭제하지 말고 다른 이메일을 쓰세요.';   // 그 계정이 인증됐는지·누구 것인지는 알리지 않는다(감사 F-1)
+const HQ_CLEANUP_LEFT = '계정이 남았을 수 있습니다 — 같은 이메일로 다시 지정하려면 콘솔에서 먼저 확인하세요';   // 4 단계 실패 뒤 방금 만든 계정을 지우지 못한 경우에만 덧붙인다
 const HQ_AUTH_ERR = { 'auth/operation-not-allowed': '이메일/비밀번호 로그인이 아직 켜지지 않았습니다. Firebase 콘솔에서 켜 주세요', 'auth/invalid-email': '이메일 형식을 확인해 주세요', 'auth/network-request-failed': '인터넷 연결을 확인해 주세요', 'auth/too-many-requests': '시도가 너무 많습니다. 잠시 뒤에 다시 해 주세요' };
 const tnDay = ms => { if (!ms) return '—'; const d = kstDay(+ms); return d.slice(0, 4) + '-' + d.slice(4, 6) + '-' + d.slice(6, 8); };
 const tnOn = () => S.view === 'admin' && AS.sub === 'tenants' && AS.el && document.body.contains(AS.el);
@@ -2658,12 +2681,13 @@ async function tnHqGo(b) {
   if (r.ok) {
     delete TN.st[key];
     const body = $('#modalRoot .modal-body'), foot = $('#modalRoot footer');
-    if (body) body.innerHTML = `<p style="margin:0 0 8px"><b>초대 메일을 보냈습니다</b></p><ol class="inst-steps"><li>받은 사람이 메일을 엽니다</li><li>메일의 링크에서 자기 비밀번호를 정합니다</li><li>관리자 로그인 화면의 「이메일로 로그인」에서 <span class="mono">${esc(email)}</span> 로 로그인합니다</li></ol><p class="hint" style="margin:8px 0 0">비밀번호는 이 화면에 나오지 않고 어디에도 저장되지 않습니다.${r.reused ? ' 이미 있는 계정이라 새로 만들지 않고 재설정 메일만 보냈습니다.' : ''}</p>${r.mailed ? '' : `<p class="gate-bad" id="hqErr">메일을 보내지 못했습니다. 아래 버튼으로 다시 보내세요.</p><button type="button" class="b" data-act="tnResend" data-email="${esc(email)}">메일을 다시 보내기</button><p class="hint" id="hqInfo" hidden style="margin:8px 0 0"></p>`}`;
+    if (body) body.innerHTML = `<p style="margin:0 0 8px"><b>초대 메일을 보냈습니다</b></p><ol class="inst-steps"><li>받은 사람이 메일을 엽니다</li><li>메일의 링크에서 자기 비밀번호를 정합니다</li><li>관리자 로그인 화면의 「이메일로 로그인」에서 <span class="mono">${esc(email)}</span> 로 로그인합니다</li></ol><p class="hint" style="margin:8px 0 0">비밀번호는 이 화면에 나오지 않고 어디에도 저장되지 않습니다.</p>${r.mailed ? '' : `<p class="gate-bad" id="hqErr">메일을 보내지 못했습니다. 아래 버튼으로 다시 보내세요.</p><button type="button" class="b" data-act="tnResend" data-email="${esc(email)}">메일을 다시 보내기</button><p class="hint" id="hqInfo" hidden style="margin:8px 0 0"></p>`}`;
     if (foot) foot.innerHTML = '<span class="grow"></span><button type="button" class="b primary" data-act="mClose">닫기</button>';
     return;
   }
   b.disabled = false; b.textContent = '다시 시도';
-  say(r.stage === 'write' && isPermDenied({ code: r.code }) ? HQ_DENIED : r.code === 'bad-email' ? '이메일 형식을 확인해 주세요' : r.code === 'bad-name' ? '이름은 1~40자입니다' : r.stage === 'auth' ? (HQ_AUTH_ERR[r.code] || '계정을 만들지 못했습니다 (' + r.code + ')') : '지정하지 못했습니다 (' + r.code + ')');
+  const msg = r.result === 'email-in-use' ? HQ_EMAIL_IN_USE : r.stage === 'write' && isPermDenied({ code: r.code }) ? HQ_DENIED : r.code === 'bad-email' ? '이메일 형식을 확인해 주세요' : r.code === 'bad-name' ? '이름은 1~40자입니다' : r.stage === 'auth' ? (HQ_AUTH_ERR[r.code] || '계정을 만들지 못했습니다 (' + r.code + ')') : '지정하지 못했습니다 (' + r.code + ')';
+  say(r.cleanup === 'failed' ? msg + ' ' + HQ_CLEANUP_LEFT : msg);
 }
 async function tnResend(b) {
   const r = await resendInvite(b.dataset.email), m = $('#hqInfo');
