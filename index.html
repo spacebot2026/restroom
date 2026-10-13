@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261013-1838';
+const BUILD = '20261013-1845';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -2597,6 +2597,9 @@ async function onModalClick(e) {
    쓰는 것: 고객사 문서 만들기·상태(status) 바꾸기, 카운터 만들기, 첫 본사 관리자 지정(issueMail → tenants/{t}/staff·meta, staffIndex).
    삭제 버튼은 없다(규칙이 삭제를 막고 정지로 대신한다). 사용량(counts)은 읽기 전용이다. 외부 값(이름·코드·오류 문구)은 모두 esc() 를 거친다. */
 const TN = { list: null, loading: false, err: '', counter: undefined, cerr: '', busy: false, st: {} };
+const TN_COUNTER_START = 999;   // counters/site 첫 값: 새 현장 번호는 영문 포함 5자리 = S+숫자 4자리, S1000 부터(정정 1·결정 32). 규칙 4.1판은 n >= 99 를 허용하므로 규칙은 그대로다
+const TN_SITE_MAX = 9999;       // 마지막 새 현장 번호 S9999 — 4자리 상한은 앱이 지킨다(규칙 4.1판은 S10000~S99999 도 허용하는 알려진 한계 — 서버 쪽 조임 n >= 999 && n <= 9999 는 규칙 5판 후보)
+const tnNextHTML = n => n + 1 > TN_SITE_MAX ? `새 현장 번호를 더 만들 수 없습니다 (S${TN_SITE_MAX} 까지)` : `다음 새 현장 번호: <b class="mono">S${n + 1}</b>`;   // n 은 이미 읽던 카운터 문서의 값 — 새 읽기 없음
 const TN_RANGE = { sites: [0, 10000, 10, '현장 수 한도'], staff: [0, 100000, 100, '담당자 수 한도'], retentionDays: [1, 3650, 365, '보관 일수'] };   // [최소, 최대, 기본값, 이름] — 규칙 limitsOk 와 같은 범위
 const HQ_DENIED = '지정하지 못했습니다. 이 고객사에 이미 본사 관리자가 있거나, 이 이메일이 이미 다른 고객사에 등록돼 있거나, 운영자 이메일일 수 있습니다. 추가 본사 관리자는 본사 관리자가 만듭니다';   // 원인을 가르지 않는다(앱은 미리 확인할 수 없다)
 const TN_SUSPEND_MSG = '정지하면 이 고객사의 이용객 접수가 막히고, 본사·현장·담당자는 로그인해도 「서비스 중지」 안내만 보게 됩니다. 데이터는 그대로 남고, 언제든 해제할 수 있습니다.';   // 카드 6항 ③ ㉠ (정지 = 서비스 전면 중지)
@@ -2622,8 +2625,8 @@ function drawTenantsAdm(main) {
   if (TN.list === null && !TN.loading) loadTenants();
   const list = TN.list || [], num = k => { const r = TN_RANGE[k]; return `<label class="fld"><span class="lab">${esc(r[3])} (${r[0]}~${r[1]})</span><input type="number" id="tnLim-${k}" min="${r[0]}" max="${r[1]}" step="1" value="${r[2]}"></label>`; };
   const counter = TN.counter === undefined ? `<p class="hint" style="margin:0">${TN.loading ? '불러오는 중…' : '카운터 상태를 확인하지 못했습니다' + (TN.cerr ? ' (' + esc(TN.cerr) + ')' : '')}</p>`
-    : TN.counter === null ? '<p class="hint" style="margin:0 0 8px">아직 만들지 않았습니다. 현장을 만들기 전에(조각 3) 한 번 만들어 두어야 합니다 — 첫 현장 번호는 S100 입니다.</p><button type="button" class="b primary" data-act="tnCounter">카운터 만들기</button>'
-    : `<p style="margin:0">현재 번호 <b class="mono">${+TN.counter || 0}</b> — 다음에 만드는 현장은 <b class="mono">S${(+TN.counter || 0) + 1}</b> 입니다. <span class="hint">(읽기 전용)</span></p>`;
+    : TN.counter === null ? '<p class="hint" style="margin:0 0 8px">아직 만들지 않았습니다. 현장을 만들기 전에(조각 3) 한 번 만들어 두어야 합니다 — ' + tnNextHTML(TN_COUNTER_START) + '</p><button type="button" class="b primary" data-act="tnCounter">카운터 만들기</button>'
+    : `<p style="margin:0">현재 번호 <b class="mono">${+TN.counter || 0}</b> — ${tnNextHTML(+TN.counter || 0)} <span class="hint">(읽기 전용)</span></p>`;
   main.innerHTML = `<div class="adm-head"><div><h1>${esc(L('menu.adm_tenants'))}</h1><p class="hint">고객사를 만들고, 정지·해제하고, 첫 본사 관리자를 지정합니다. 고객사 안의 접수·사진·담당자 명단은 운영자도 볼 수 없습니다. 사용량은 읽기만 됩니다.</p></div><div class="adm-head-actions"><button type="button" class="b" data-act="tnReload">새로 불러오기</button></div></div>
     <section class="card"><h3>고객사 ${TN.list === null ? '' : list.length + '곳'}</h3>${TN.err ? `<p class="gate-bad">${esc(TN.err)}</p>` : ''}
       ${TN.list === null ? '<p class="hint" style="margin:0">불러오는 중…</p>' : list.length ? `<div class="tbl-wrap"><table class="tbl mem"><thead><tr><th>이름</th><th>코드</th><th>상태</th><th>사용량 / 한도</th><th>보관</th><th>만든 날</th><th></th></tr></thead><tbody>${list.map(tnRow).join('')}</tbody></table></div>` : '<p class="hint" style="margin:0">아직 고객사가 없습니다. 아래에서 만드세요.</p>'}</section>
@@ -2659,7 +2662,7 @@ async function setTenantStatus(tid, status) {
 }
 async function makeCounter() {
   if (TN.busy) return; TN.busy = true;
-  try { await P.as('tenant').counters().set({ n: 99 }); TN.counter = 99; toast('카운터를 만들었습니다'); }
+  try { await P.as('tenant').counters().set({ n: TN_COUNTER_START }); TN.counter = TN_COUNTER_START; toast('카운터를 만들었습니다'); }
   catch (e) { toast('만들지 못했습니다 (' + errCode(e) + ')'); }
   TN.busy = false; if (tnOn()) drawAdmMain();
 }
