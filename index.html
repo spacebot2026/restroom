@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261013-1335';
+const BUILD = '20261013-1348';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -3442,6 +3442,7 @@ async function resolveRole(u) {
       }
       return denied('nostaff');
     }
+    if (!okSeg(email)) return denied('nostaff');                        // 문서 ID 로 쓸 수 없는 이메일('/' 포함·빈 값)은 어디에도 등록될 수 없다 — 경로를 만들다 던지지 않게 먼저 거른다
     if (!u.emailVerified) return denied('unverified');                  // 데이터를 읽기 전에 인증 안내 화면
     let op = false;
     try { await P.notesCol().limit(1).get(); op = true; } catch (e) { if (!isPermDenied(e)) throw e; }   // 서버 규칙이 운영자를 판정한다(코드에 이메일 없음)
