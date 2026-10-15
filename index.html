@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261015-1831';
+const BUILD = '20261015-1856';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1455,7 +1455,9 @@ const DL = { async save({ filename, data }) {
 let STORE = 'wait';
 // role(옛 필드)의 의미는 그대로. tier/world/tid/siteIds/kind/emailVerified 는 2-B 에서 더했다(카드 2.1)
 const AUTH = { ready: false, user: null, role: 'none', email: '', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', tenantName: '', tenantActive: true, emailVerified: false, reason: '', retry: false };
-const TENANT_UI_READY = false;   // 새 세계 화면(2-D)이 준비되면 켠다. 그 전에는 새 세계 사용자(HQ·SM·ST)가 「준비 중」과 로그아웃만 본다
+const TENANT_UI_READY = true;   // 새 세계 이용객·담당자 화면(2-D) — 켜졌다. 정지된 고객사의 사용자는 정지 안내가 먼저다(2-C)
+const TENANT_ADMIN_UI_READY = false;   // 본사·현장 관리자(HQ·SM) 화면 — 조각 3·4 가 채울 때 켠다. 그 전에는 「준비 중」과 로그아웃만 본다
+const tenantUiReady = () => AUTH.role === 'tenantAdmin' ? TENANT_ADMIN_UI_READY : TENANT_UI_READY;   // HQ·SM 은 role 'tenantAdmin'(카드 2.1), 담당자(ST)·이용객은 TENANT_UI_READY
 let AUTH_WAIT = [];
 const waitAuth = () => AUTH.user ? Promise.resolve() : new Promise((res, rej) => { AUTH_WAIT.push(res); setTimeout(() => rej({ code: 'auth-timeout' }), 12000); });
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.tm); toast.tm = setTimeout(() => { t.hidden = true; }, 3400); }
@@ -3368,7 +3370,7 @@ let GTAB = LS.get('rc-admin-tab') === 'email' ? 'email' : 'google';       // 관
 const rememberTid = tid => { if (tid && tid !== 't00') LS.set('rc-tid', tid); else LS.del('rc-tid'); };
 const gateBrand = () => `<div class="brand"><span class="logo">SPACE</span><div style="text-align:left"><b>화장실 불편접수</b><small>판 ${BUILD}</small></div></div>`;
 const specialCard = (title, body, buttons) => `<div class="gate"><div class="card gate-card">${gateBrand()}<h2>${esc(title)}</h2>${body}${buttons}</div></div>`;
-function notReadyHTML() {                                                 // 새 세계 사용자(HQ·SM·ST): TENANT_UI_READY 가 켜지기 전의 안내 + 고객사 이름·본인 역할 + 로그아웃
+function notReadyHTML() {                                                 // 새 세계 본사·현장 관리자(HQ·SM)의 「준비 중」 안내(TENANT_ADMIN_UI_READY 가 켜지기 전) + 고객사 이름·본인 역할 + 로그아웃
   const title = AUTH.tier === 'HQ' ? '본사 관리자 화면은 준비 중입니다' : AUTH.tier === 'SM' ? '현장 관리자 화면은 준비 중입니다' : '담당자 화면은 준비 중입니다';
   const who = AUTH.tier === 'HQ' ? '본사 관리자' : AUTH.tier === 'SM' ? '현장 관리자' : '담당자';
   return specialCard(title, `<p class="hint" style="margin:0">고객사 <b>${esc(AUTH.tenantName || AUTH.tid)}</b> · 내 역할 <b>${esc(who)}</b></p><p class="hint" style="margin:0">곧 사용하실 수 있습니다.</p>`, '<button type="button" class="b gate-btn" data-act="logout">로그아웃</button>');
@@ -3389,7 +3391,7 @@ function specialHTML() {                                                  // 판
   if (!AUTH.ready || !u) return '';
   if (u.isAnonymous) return custSpecialHTML();   // 새 세계 이용객(2-D): 다시 시도·세계 충돌 안내. 스위치가 꺼져 있으면 이 경우가 생기지 않아 ''
   if (AUTH.world === 'tenant' && !AUTH.tenantActive) return stoppedHTML();   // 정지(전면 중지) 안내가 먼저 — 이용객 접수 주소(#r-…)를 열어도 같다
-  if (AUTH.world === 'tenant' && !TENANT_UI_READY) return notReadyHTML();
+  if (AUTH.world === 'tenant' && !tenantUiReady()) return notReadyHTML();
   if (S.full === 'customer') return '';
   if (AUTH.retry) return retryHTML();
   if (AUTH.reason === 'unverified') return verifyHTML();
@@ -3785,7 +3787,7 @@ async function onUser(u) {
     unsubAll(); TICKETS = []; DATA_READY = false; TN.list = null; TN.counter = undefined; TN.st = {};
     if (S.full === 'customer') { try { await AUTHX.signInAnonymously(); } catch (e) { toast('접속하지 못했습니다. 새로 고쳐 주세요. (' + errCode(e) + ')'); } return; }
   } else if (u.isAnonymous && (AUTH.retry || AUTH.reason === 'conflict')) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 이용객: 세계를 정하지 못했거나 충돌 — 읽지 않는다(안내 화면)
-  else if (AUTH.world === 'tenant' && (!TENANT_UI_READY || !AUTH.tenantActive)) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 화면이 준비되기 전·고객사가 정지된 동안에는 데이터를 읽지 않는다
+  else if (AUTH.world === 'tenant' && (!tenantUiReady() || !AUTH.tenantActive)) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 화면이 준비되기 전·고객사가 정지된 동안에는 데이터를 읽지 않는다
   else if ((AUTH.retry || AUTH.reason === 'unverified') && S.full !== 'customer') { unsubAll(); TICKETS = []; DATA_READY = false; }   // 인증 안내·다시 시도 화면에서는 데이터를 읽지 않는다
   else startSubs();
   render();
