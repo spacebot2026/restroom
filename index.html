@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261015-1803';
+const BUILD = '20261015-1815';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1147,28 +1147,28 @@ const I18N = {
     s1: '접수', s2: '담당자 이동', s3: '조치 완료', thanks: '감사합니다', thanksSub: '오늘도 깨끗하게 관리하겠습니다', sosSent: '직원과 방재실에 알렸습니다', sosSub: '이 자리에서 잠시만 기다려 주세요', sosCancel: '잘못 눌렀어요', sosAsk: '긴급 도움을 요청할까요?', sosYes: '요청하기',
     W: '여자화장실', M: '남자화장실', site: '한빛센트럴타워', east: '동측', west: '서측',
     qrChip: '앱 설치 없이 바로 접수', privacy: '이름·전화번호는 받지 않습니다', qrStall: '어느 칸인가요? (선택)', qrPhoto: '사진 (선택)', qrNote: '한 줄 설명 (선택)', qrSend: '접수하기', sending: '보내는 중…', unknown: '모름', photoCam: '사진 찍기', photoPick: '앨범에서 고르기', photoRm: '사진 빼기', photoHint: '사람이 찍히지 않게 시설만 찍어 주세요', notePh: '예: 세 번째 칸 휴지걸이가 부서졌어요',
-    keepOpen: '이 화면을 열어 두시면 조치 완료를 바로 알려 드립니다', doneTitle: '조치가 끝났습니다', doneSub: '해결되었나요?', yes: '해결됐어요', notYet: '아직 그대로예요', reopened: '다시 접수했습니다', resolvedThanks: '알려 주셔서 감사합니다', loading: '불러오는 중…', sendFail: '보내지 못했습니다. 다시 눌러 주세요.',
+    keepOpen: '이 화면을 열어 두시면 조치 완료를 바로 알려 드립니다', doneTitle: '조치가 끝났습니다', doneSub: '해결되었나요?', yes: '해결됐어요', notYet: '아직 그대로예요', reopened: '다시 접수했습니다', resolvedThanks: '알려 주셔서 감사합니다', loading: '불러오는 중…', sendFail: '보내지 못했습니다. 다시 눌러 주세요.', dupBlind: '이미 접수된 불편입니다. 담당자가 확인 중입니다', closed: '지금은 접수를 받을 수 없는 상태입니다. 시설 관리자에게 문의해 주세요', cancelBlocked: '다른 분의 신고가 함께 묶여 있어 취소할 수 없습니다',
     issues: { paper: '휴지 없음', soap: '비누·세정제 없음', clog: '변기 막힘', floor: '바닥 물기·오염', odor: '냄새', trash: '쓰레기통 가득', sink: '세면대·수도', light: '조명·환기', etc: '기타 고장' } },
   en: { q: 'Tap what needs attention', clean: "It's clean", sos: 'Emergency', sosHint: 'Hold for 2 seconds', back: 'Start over', urinal: 'Urinal', stall: 'Stall {n}',
     sent: 'Request sent', sentSub: 'Staff have been notified', eta: 'Usually fixed within {n} min', dup: 'Already reported', dupSub: 'Staff are on it. We sent another alert.',
     s1: 'Received', s2: 'On the way', s3: 'Fixed', thanks: 'Thank you', thanksSub: "We'll keep it clean", sosSent: 'Staff and security alerted', sosSub: 'Please wait here', sosCancel: 'Pressed by mistake', sosAsk: 'Call for emergency help?', sosYes: 'Call now',
     W: 'Women', M: 'Men', site: 'Hanbit Central Tower', east: 'East', west: 'West',
     qrChip: 'No app needed', privacy: "We don't ask for your name or phone number", qrStall: 'Which stall? (optional)', qrPhoto: 'Photo (optional)', qrNote: 'Short note (optional)', qrSend: 'Send', sending: 'Sending…', unknown: 'Not sure', photoCam: 'Take a photo', photoPick: 'Choose from album', photoRm: 'Remove photo', photoHint: 'Please photograph the facility only, not people', notePh: 'e.g. The holder in stall 3 is broken',
-    keepOpen: "Keep this page open and we'll show you when it's fixed", doneTitle: "It's been fixed", doneSub: 'Is it resolved?', yes: 'Yes, resolved', notYet: 'Still a problem', reopened: 'Reported again', resolvedThanks: 'Thanks for letting us know', loading: 'Loading…', sendFail: "Couldn't send. Please try again.",
+    keepOpen: "Keep this page open and we'll show you when it's fixed", doneTitle: "It's been fixed", doneSub: 'Is it resolved?', yes: 'Yes, resolved', notYet: 'Still a problem', reopened: 'Reported again', resolvedThanks: 'Thanks for letting us know', loading: 'Loading…', sendFail: "Couldn't send. Please try again.", dupBlind: 'This has already been reported. Staff are checking it.', closed: "We can't accept reports right now. Please contact the facility manager.", cancelBlocked: "Others have reported the same problem, so this can't be cancelled.",
     issues: { paper: 'Out of toilet paper', soap: 'Out of soap', clog: 'Toilet clogged', floor: 'Wet or dirty floor', odor: 'Bad odor', trash: 'Bin is full', sink: 'Sink or faucet', light: 'Lights or fan', etc: 'Other problem' } },
   zh: { q: '请点击需要处理的问题', clean: '很干净', sos: '紧急求助', sosHint: '请长按2秒', back: '返回首页', urinal: '小便池', stall: '{n}号隔间',
     sent: '已受理', sentSub: '已立即通知工作人员', eta: '通常{n}分钟内处理', dup: '已有人反映此问题', dupSub: '工作人员正在处理，已再次提醒',
     s1: '已受理', s2: '人员前往中', s3: '处理完毕', thanks: '谢谢', thanksSub: '我们会继续保持清洁', sosSent: '已通知工作人员和安保室', sosSub: '请在原地稍候', sosCancel: '误按了', sosAsk: '需要紧急求助吗？', sosYes: '立即求助',
     W: '女洗手间', M: '男洗手间', site: '韩光中央大厦', east: '东侧', west: '西侧',
     qrChip: '无需安装应用', privacy: '不收集姓名或电话号码', qrStall: '第几个隔间？（可选）', qrPhoto: '照片（可选）', qrNote: '简短说明（可选）', qrSend: '提交', sending: '提交中…', unknown: '不确定', photoCam: '拍照', photoPick: '从相册选择', photoRm: '删除照片', photoHint: '请只拍设施，不要拍到人', notePh: '例：3号隔间纸巾架坏了',
-    keepOpen: '保持此页面打开，处理完毕会立即通知您', doneTitle: '已处理完毕', doneSub: '问题解决了吗？', yes: '已解决', notYet: '还没解决', reopened: '已重新提交', resolvedThanks: '感谢您的反馈', loading: '加载中…', sendFail: '提交失败，请再试一次。',
+    keepOpen: '保持此页面打开，处理完毕会立即通知您', doneTitle: '已处理完毕', doneSub: '问题解决了吗？', yes: '已解决', notYet: '还没解决', reopened: '已重新提交', resolvedThanks: '感谢您的反馈', loading: '加载中…', sendFail: '提交失败，请再试一次。', dupBlind: '此问题已被反映，工作人员正在确认', closed: '目前无法受理报修，请联系设施管理人员', cancelBlocked: '已有其他人一并反映此问题，无法取消',
     issues: { paper: '没有卫生纸', soap: '没有洗手液', clog: '马桶堵塞', floor: '地面湿滑或脏污', odor: '有异味', trash: '垃圾桶已满', sink: '洗手台·水龙头', light: '照明·通风', etc: '其他故障' } },
   ja: { q: 'お困りの点をタッチしてください', clean: 'きれいです', sos: '緊急呼び出し', sosHint: '2秒間押してください', back: '最初に戻る', urinal: '小便器', stall: '{n}番の個室',
     sent: '受け付けました', sentSub: '担当者にすぐ通知しました', eta: '通常{n}分以内に対応します', dup: 'すでに受け付けています', dupSub: '担当者が対応中です。もう一度通知しました',
     s1: '受付', s2: '担当者移動中', s3: '対応完了', thanks: 'ありがとうございます', thanksSub: '引き続き清潔に保ちます', sosSent: 'スタッフと防災センターに通知しました', sosSub: 'その場でお待ちください', sosCancel: '押し間違えました', sosAsk: '緊急呼び出しをしますか？', sosYes: '呼び出す',
     W: '女性用トイレ', M: '男性用トイレ', site: 'ハンビット・セントラルタワー', east: '東側', west: '西側',
     qrChip: 'アプリ不要ですぐ受付', privacy: 'お名前・電話番号は不要です', qrStall: '何番目の個室ですか？（任意）', qrPhoto: '写真（任意）', qrNote: 'ひとこと（任意）', qrSend: '送信する', sending: '送信中…', unknown: 'わからない', photoCam: '写真を撮る', photoPick: 'アルバムから選ぶ', photoRm: '写真を外す', photoHint: '人が写らないよう設備だけを撮ってください', notePh: '例：3番の個室のペーパーホルダーが壊れています',
-    keepOpen: 'この画面を開いたままにすると対応完了をお知らせします', doneTitle: '対応が完了しました', doneSub: '解決しましたか？', yes: '解決しました', notYet: 'まだです', reopened: 'もう一度受け付けました', resolvedThanks: 'お知らせいただきありがとうございます', loading: '読み込み中…', sendFail: '送信できませんでした。もう一度お試しください。',
+    keepOpen: 'この画面を開いたままにすると対応完了をお知らせします', doneTitle: '対応が完了しました', doneSub: '解決しましたか？', yes: '解決しました', notYet: 'まだです', reopened: 'もう一度受け付けました', resolvedThanks: 'お知らせいただきありがとうございます', loading: '読み込み中…', sendFail: '送信できませんでした。もう一度お試しください。', dupBlind: 'すでに受け付けています。担当者が確認中です', closed: '現在は受け付けできません。施設の管理者にお問い合わせください', cancelBlocked: '他の方の報告がまとめられているため、取り消せません',
     issues: { paper: 'トイレットペーパー切れ', soap: '石けん切れ', clog: 'トイレのつまり', floor: '床の濡れ・汚れ', odor: 'におい', trash: 'ゴミ箱が満杯', sink: '洗面台・水道', light: '照明・換気', etc: 'その他の故障' } }
 };
 const UIK = { q: 'field.qr.q', clean: 'field.qr.clean', sos: 'field.qr.sos', sent: 'field.qr.sent', sentSub: 'field.qr.sent_sub', qrStall: 'field.qr.stall', qrPhoto: 'field.qr.photo', qrNote: 'field.qr.note', qrSend: 'field.qr.send' };
@@ -1441,6 +1441,7 @@ const tidUsable = t => okTid(t) && !TID_RESERVED.includes(t);
 const cleanTid = raw => { const t = String(raw == null ? '' : raw).trim().toLowerCase(); return tidUsable(t) ? t : ''; };
 const urlTid = () => { try { return cleanTid(new URLSearchParams(location.search).get('t')); } catch (e) { return ''; } };
 const prefillTid = () => urlTid() || cleanTid(LS.get('rc-tid'));
+const sidOfRoom = rid => { const s = String(rid || '').split('-')[0]; return okSid(s) ? s : ''; };   // 방 ID S1000-1F-M1 → 현장 S1000 (모양이 틀리면 '')
 /* ================= 경로 도우미 P 끝 ================= */
 
 const ASSETS = null;
@@ -1461,8 +1462,8 @@ function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = fal
 const errCode = e => (e && e.code) || '오류';
 function dispatch(evs) { MOUNTS.forEach(m => { try { m.refresh(evs || []); } catch (e) { console.error(e); } }); refreshDetail(); }
 const stripUndef = o => { Object.keys(o).forEach(k => { if (o[k] === undefined) delete o[k]; }); return o; };
-async function putTicket(t) { await P.ticket(t.id).set(stripUndef(Object.assign({}, t))); trackTicket(t.id); }
-async function patchTicket(id, patch) { await P.ticket(id).update(stripUndef(Object.assign({}, patch))); }
+async function putTicket(t) { await P.ticket(t.id, t.siteId).set(stripUndef(Object.assign({}, t))); trackTicket(t.id, t.siteId); }
+async function patchTicket(id, patch, tag, sid) { const t = tById(id) || TRACKED[id], ref = P.ticket(id, sid || (t && t.siteId)); if (!ref) throw { code: 'no-site' }; await ref.update(stripUndef(Object.assign({}, patch))); }   // sid: 새 세계 경로용(옛 세계는 무시)
 function diffEvents(prev, next) {
   const pm = new Map(prev.map(t => [t.id, t])), ev = [];
   next.forEach(t => {
@@ -1473,12 +1474,13 @@ function diffEvents(prev, next) {
   });
   return ev;
 }
-const PHOTO_CACHE = {}, PHOTO_LOADING = new Set();
+const PHOTO_CACHE = {}, PHOTO_LOADING = new Set(), PHOTO_SITE = {};   // PHOTO_SITE: 새 세계에서 사진 문서가 속한 현장(pid → sid) — 접수의 siteId
 const BLANK = 'data:image/gif;base64,R0lGODlhAQABAIAAAP///wAAACH5BAEAAAAALAAAAAABAAEAAAICRAEAOw==';
 function loadPhoto(pid) {
   if (PHOTO_CACHE[pid] || PHOTO_LOADING.has(pid)) return;
+  const pref = P.photo(pid, PHOTO_SITE[pid]); if (!pref) return;   // 새 세계: 현장을 모르면 읽지 않는다
   PHOTO_LOADING.add(pid);
-  P.photo(pid).get().then(s => { if (s.exists) { PHOTO_CACHE[pid] = s.data().data; dispatch([]); } }).catch(() => {}).finally(() => PHOTO_LOADING.delete(pid));
+  pref.get().then(s => { if (s.exists) { PHOTO_CACHE[pid] = s.data().data; dispatch([]); } }).catch(() => {}).finally(() => PHOTO_LOADING.delete(pid));
 }
 async function toJpegData(img, maxEdge, maxLen) {
   const ow = img.naturalWidth, oh = img.naturalHeight, k = Math.min(1, maxEdge / Math.max(ow, oh));
@@ -1488,19 +1490,22 @@ async function toJpegData(img, maxEdge, maxLen) {
   while (data.length > maxLen && q > 0.35) { q -= 0.1; data = c.toDataURL('image/jpeg', q); }
   return { data, w: c.width, h: c.height, ow, oh, shrunk: k < 1 };
 }
-async function storePhoto(blob) {
+async function storePhoto(blob, sid) {
   const url0 = URL.createObjectURL(blob);
   let img; try { img = await loadImg(url0); } finally { URL.revokeObjectURL(url0); }
   const r = await toJpegData(img, 1600, 900000);
-  const pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-  await P.photo(pid).set({ data: r.data, w: r.w, h: r.h, ow: r.ow, oh: r.oh, at: Date.now(), uid: AUTH.user ? AUTH.user.uid : '' });
-  PHOTO_CACHE[pid] = r.data;
+  let pid = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  if (P._tn()) while (pid.length < 12) pid += '0';   // 새 세계 규칙 pid: p + 소문자·숫자 10~24자 — 모자라면 채운다(옛 세계 id 는 그대로)
+  const pref = P.photo(pid, sid); if (!pref) throw { code: 'no-site' };
+  await pref.set({ data: r.data, w: r.w, h: r.h, ow: r.ow, oh: r.oh, at: Date.now(), uid: AUTH.user ? AUTH.user.uid : '' });
+  PHOTO_CACHE[pid] = r.data; if (P._tn() && sid) PHOTO_SITE[pid] = sid;
   return { pid, w: r.w, h: r.h, ow: r.ow, oh: r.oh, shrunk: r.shrunk };
 }
 
 /* ================= 접수 처리 ================= */
 async function createTicket({ roomId, issue, stall = null, note = '', photo = null, emergency = false }) {
   await waitAuth();
+  if (P._tn()) return createTicketTenant({ roomId, issue, stall, note, photo, emergency });   // 새 세계(2-D): 포인터로 묶기
   const now = Date.now(), room = rById(roomId);
   if (!emergency) {
     const open = TICKETS.find(t => t.roomId === roomId && t.issue === issue && isOpen(t) && (stall == null || t.stall == null || String(t.stall) === String(stall)) && now - t.createdAt < OPS.dedupeMin * M);
@@ -1521,6 +1526,47 @@ async function createTicket({ roomId, issue, stall = null, note = '', photo = nu
   await putTicket(t);
   return { dup: false, id: t.id };
 }
+/* ---------- 새 세계 접수·묶기·「깨끗해요」 (조각 2-D, 카드 8.2·8.3) ----------
+   TENANT_UI_READY 가 켜진 판에서만 이용객이 새 세계(P.world 'tenant')가 된다. 이용객은 남의 접수·접수 목록을 읽지 못하므로(규칙) 같은 불편 묶기는 포인터 roomOpen/{방~이슈키} 로 한다.
+   새 접수 = 접수 + 포인터를 한 배치로 쓴다(규칙 roomOpenOk 는 「같은 배치에서 새로 만들어지는 본인 접수」만 가리키게 한다).
+   묶기 = 그 접수에 reports+1·log+1 인 update 한 번. 규칙 customerUpdate4 는 모든 묶기 update 에 이 둘을 요구하고, 사진·설명·칸은 「지금 비어 있을 때만」 같은 update 에 실을 수 있다.
+   → 사진·설명·칸이 있으면 한 번에 실어 보내고, 규칙이 거부하면(이미 채워져 있음) 최소 묶기로 다시 보낸다. (카드 8.2 ④ 의 「별도 update」는 규칙상 항상 거부되므로 이렇게 한다 — report.md 설계 질문)
+   묶기가 permission-denied 로 끝나면(이미 완료·취소, 또는 묶기 상한 reports 100·log 200) 새 접수를 만들고 포인터를 덮어쓴다 — 사용자에게는 오류로 보이지 않는다(감사 F3). */
+async function createTicketTenant({ roomId, issue, stall, note, photo, emergency }) {
+  const now = Date.now(), room = rById(roomId);
+  if (!room) throw { code: 'no-room' };
+  const sid = room.site, ptrRef = emergency ? null : P.roomOpen(roomId + '~' + toHex(issue), sid);   // 긴급(SOS)은 묶지 않는다 — 포인터도 쓰지 않는다
+  if (ptrRef) {
+    let ptr = null;
+    try { const s = await ptrRef.get(); if (s.exists) ptr = s.data(); } catch (e) { /* 포인터를 못 읽으면 묶지 않고 새 접수로 간다 */ }
+    if (ptr && typeof ptr.tk === 'string' && typeof ptr.at === 'number' && now - ptr.at < OPS.dedupeMin * M && (stall == null || ptr.stall == null || String(ptr.stall) === String(stall))) {
+      const ref = P.ticket(ptr.tk, sid), base = { reports: FV.increment(1), log: FV.arrayUnion({ t: now, text: '추가 신고 · QR' + (stall ? ' · ' + stallKo(stall) : '') }) };
+      const extra = {}; if (photo) extra.photo = photo; if (note) extra.note = note; if (stall && ptr.stall == null) extra.stall = stall;   // 포인터에 칸이 있으면 접수에도 칸이 있어 규칙이 거부한다 — 싣지 않는다
+      try {
+        if (Object.keys(extra).length) { try { await ref.update(stripUndef(Object.assign({}, base, extra))); return { dup: true, id: ptr.tk, blind: true }; } catch (e) { if (!isPermDenied(e)) throw e; } }
+        await ref.update(base);
+        return { dup: true, id: ptr.tk, blind: true };
+      } catch (e) { if (!isPermDenied(e)) throw e; /* 아래 새 접수로 */ }
+    }
+  }
+  const t = { id: newIdAt(now), siteId: sid, roomId, issue, stall, channel: 'qr', note, photo, afterPhoto: null, emergency, status: 'new', createdAt: now, ackAt: null, doneAt: null, staffId: '', reports: 1, reopened: 0, action: null, doneNote: '', dev: String(DEVICE).slice(0, 30), uid: AUTH.user ? AUTH.user.uid : '', log: [{ t: now, text: '접수 · QR' }] };
+  if (emergency) t.log.push({ t: now, text: '방재실에 함께 알림' });
+  const batch = DB.batch();
+  batch.set(P.ticket(t.id, sid), stripUndef(Object.assign({}, t)));
+  if (ptrRef) batch.set(ptrRef, { tk: t.id, at: now, stall: stall == null ? null : stall });
+  await batch.commit();
+  trackTicket(t.id, sid);
+  return { dup: false, id: t.id };
+}
+/* 「깨끗해요」 새 세계 (카드 8.3): 이용객은 feedback 을 읽지 못해(규칙 read: siteAcc) 문서가 있는지 모른다.
+   먼저 n:1 로 만들어 보고(set), 이미 있으면 규칙이 update 로 평가해 거부하므로 그때 n+1(update)로 올린다. 문서 ID 는 YYYYMMDD_방ID 로 day·roomId 와 일치해야 한다.
+   존재하지 않는 문서에 update 하면 규칙이 거부하므로 update 먼저는 쓸 수 없다. 고객사·현장 문서가 있는 경로에만 쓰인다(감사 F6). */
+async function addCleanTenant(roomId) {
+  const sid = sidOfRoom(roomId), day = kstDate(), ref = P.feedback(day + '_' + roomId, sid);
+  if (!ref) return;
+  try { await ref.set({ day, roomId, n: 1, at: Date.now() }); }
+  catch (e) { await ref.update({ n: FV.increment(1), at: Date.now() }); }
+}
 const addLog = (t, text) => (t.log || []).concat([{ t: Date.now(), text }]);
 function ackTicket(t, sid) { const s = sById(sid); return patchTicket(t.id, { status: 'going', ackAt: Date.now(), staffId: s.id, log: addLog(t, '출동 · ' + (s.id ? s.name : '관리자')) }, 'ack'); }
 function completeTicket(t, { action, photo, note, by }) {
@@ -1535,9 +1581,10 @@ function completeTicket(t, { action, photo, note, by }) {
 function cancelTicket(id) { const t = tById(id); if (!t || t.status === 'done') return Promise.resolve(); return patchTicket(t.id, { status: 'cancel', log: addLog(t, '고객이 취소 (잘못 누름)') }, 'cancel'); }
 function reopenTicket(t) { return patchTicket(t.id, { status: 'new', ackAt: null, doneAt: null, reports: (t.reports || 1) + 1, reopened: (t.reopened || 0) + 1, log: addLog(t, '고객: 아직 그대로 · 다시 접수') }, 'new'); }
 async function addClean(roomId) {
-  try { await waitAuth(); await P.feedback(kstDate() + '_' + roomId).set({ day: kstDate(), roomId, n: FV.increment(1), at: Date.now() }, { merge: true }); } catch (e) { /* 무시 */ }
+  try { await waitAuth(); if (P._tn()) { await addCleanTenant(roomId); return; } await P.feedback(kstDate() + '_' + roomId).set({ day: kstDate(), roomId, n: FV.increment(1), at: Date.now() }, { merge: true }); } catch (e) { /* 무시 */ }
 }
-function etaMin(code) { const d = TICKETS.filter(t => t.issue === code && t.status === 'done'); if (!d.length) return issueDef(code).sla; return Math.max(1, Math.round(d.reduce((a, t) => a + (t.doneAt - t.createdAt), 0) / d.length / M)); }
+function etaMin(code) { if (P._tn() && AUTH.role === 'customer') return issueDef(code).sla;   // 새 세계: 완료 접수 목록을 못 읽으므로 기준 시간(SLA) (카드 8.5-2)
+  const d = TICKETS.filter(t => t.issue === code && t.status === 'done'); if (!d.length) return issueDef(code).sla; return Math.max(1, Math.round(d.reduce((a, t) => a + (t.doneAt - t.createdAt), 0) / d.length / M)); }
 
 /* ================= 상태·화면 ================= */
 const S = { view: 'admin', full: null, fullRoom: null, editing: false, qrRoom: '', openPopup: '' };
@@ -1605,6 +1652,7 @@ function route() {
   render();
   if (S.full === 'customer' && AUTH.ready && !AUTH.user) AUTHX.signInAnonymously().catch(() => {});
   else if (S.full === 'customer' && AUTH.ready && AUTH.user && !SUBS_ON && AUTH.world !== 'tenant') startSubs();   // 안내 화면에 있다가 접수 주소로 옮겨 온 경우
+  else if (TENANT_UI_READY && S.full === 'customer' && AUTH.ready && AUTH.user && AUTH.user.isAnonymous && sidOfRoom(S.fullRoom) !== CUST_SID) onUser(AUTHX.currentUser);   // 다른 현장의 QR 로 주소만 바뀐 경우: 세계를 다시 확인(같은 세계면 그 현장 구독, 다르면 「다시 열어 주세요」)
 }
 function notesHTML(title, items) { return `<p class="dnotes-h">${esc(title)}</p><ul class="dnotes">${items.map(x => `<li>${x}</li>`).join('')}</ul>`; }
 function roomOptions(sel) { return SITES.map(st => siteFloors(st.id).map(f => `<optgroup label="${esc(st.name)} ${f}">${ROOMS.filter(r => r.site === st.id && r.floor === f).map(r => `<option value="${r.id}" ${r.id === sel ? 'selected' : ''}>${esc(roomLabel(r.id))}</option>`).join('')}</optgroup>`).join('')).join(''); }
@@ -1700,6 +1748,12 @@ function trackHTML(t, lang) {
   const on2 = t.status === 'going' || t.status === 'done', on3 = t.status === 'done';
   return `<ol class="qa-track"><li class="on">${esc(T(lang, 's1'))}<time>${hm(t.createdAt)}</time></li><li class="${on2 ? 'on' : ''}">${esc(T(lang, 's2'))}<time>${t.ackAt ? hm(t.ackAt) : ''}</time></li><li class="${on3 ? 'on' : ''}">${esc(T(lang, 's3'))}<time>${t.doneAt ? hm(t.doneAt) : ''}</time></li></ol>`;
 }
+const closedErr = e => P._tn() && isPermDenied(e);                            // 새 세계 이용객의 쓰기가 permission-denied: 정지 등 — 원인을 가르지 않는다(익명은 tenants/{t} 를 못 읽는다, 카드 8.6)
+function sosCancelBtn(lang) {                                                 // 「잘못 눌렀어요」: 새 세계에서는 아무도 묶지 않았을 때(reports 1)만 보인다 — 규칙이 reports == 1 일 때만 취소를 허용한다(감사 F2)
+  const t = QS.res && tById(QS.res.tid);
+  if (P._tn() && t && (t.reports || 1) > 1) return '';
+  return `<button type="button" class="b" data-act="sosCancel">${esc(T(lang, 'sosCancel'))}</button>`;
+}
 function qrHTML(ctx) {
   const room = rById(ctx.roomId), lang = QS.lang, ko = lang === 'ko';
   const head = `<div class="qa-top">${ctx.full ? '' : `<div class="sbar"><span>${hm(Date.now())}</span><span>5G</span></div>`}<div class="qa-head"><div class="qa-floor">${room.floor}</div><div class="qa-pict">${pictSvg(room.type)}</div><div class="qa-where"><b>${esc(T(lang, room.type))}${room.dup ? ' ' + room.n : ''}</b><span>${esc(room.siteName)}</span></div><select class="qa-lang" data-in="qlang" aria-label="언어 · Language">${LANGS.map(l => `<option value="${l}" ${l === lang ? 'selected' : ''}>${LANGNAME[l]}</option>`).join('')}</select></div></div>`;
@@ -1714,7 +1768,8 @@ function qrHTML(ctx) {
     if (QS.step === 'sosAsk') body += `<div class="qa-sheet-wrap"><div class="qa-sheet" role="dialog" aria-label="${esc(T(lang, 'sosAsk'))}" data-sp-popup><header><b>${esc(T(lang, 'sosAsk'))}</b><button type="button" class="x" data-act="home" aria-label="닫기">✕</button></header><div class="qa-two"><button type="button" class="bigbtn ghost" data-act="home">${esc(T(lang, 'back'))}</button><button type="button" class="bigbtn" data-act="sosYes" style="background:#B3261E">${esc(T(lang, 'sosYes'))}</button></div></div></div>`;
   } else if (QS.step === 'sent') {
     const t = tById(QS.res.tid);
-    if (!t) body = `<div class="qa-body"><p class="loading">${esc(T(lang, 'loading'))}</p></div>`;
+    if (QS.res.blind) body = `<div class="qa-body qa-center"><div class="qa-check">${svg('bell')}</div><h2>${esc(T(lang, 'dupBlind'))}</h2><button type="button" class="b" data-act="home">${esc(T(lang, 'back'))}</button></div>`;   // 새 세계: 묶은 사람은 진행 상황을 보지 못한다(카드 8.5-1)
+    else if (!t) body = `<div class="qa-body"><p class="loading">${esc(T(lang, 'loading'))}</p></div>`;
     else {
       const done = t.status === 'done';
       const eta = esc(T(lang, 'eta', { n: '§' })).replace('§', `<b>${etaMin(t.issue)}</b>`);
@@ -1729,7 +1784,7 @@ function qrHTML(ctx) {
         <button type="button" class="b" data-act="home">${esc(T(lang, 'back'))}</button></div>`;
     }
   } else if (QS.step === 'sos') {
-    body = `<div class="qa-body qa-center"><div class="qa-check sos">${svg('bell')}</div><h2>${esc(T(lang, 'sosSent'))}</h2><p class="hint">${esc(T(lang, 'sosSub'))}</p><button type="button" class="b" data-act="sosCancel">${esc(T(lang, 'sosCancel'))}</button></div>`;
+    body = `<div class="qa-body qa-center"><div class="qa-check sos">${svg('bell')}</div><h2>${esc(T(lang, 'sosSent'))}</h2><p class="hint">${esc(T(lang, 'sosSub'))}</p>${sosCancelBtn(lang)}</div>`;
   } else if (QS.step === 'thanks') {
     body = `<div class="qa-body qa-center"><div class="qa-check ok">${svg('smile')}</div><h2>${esc(T(lang, 'thanks'))}</h2><p class="hint">${esc(QS.msg || T(lang, 'thanksSub'))}</p><button type="button" class="b" data-act="home">${esc(T(lang, 'back'))}</button></div>`;
   }
@@ -1754,7 +1809,7 @@ async function triggerSos(ctx) {
   try {
     const r = await createTicket({ roomId: ctx.roomId, issue: 'sos', emergency: true });
     QS.res = { tid: r.id, dup: false }; QS.step = 'sos'; LS.set('rc-last-' + ctx.roomId, r.id); QS.draw();
-  } catch (e) { toast(T(QS.lang, 'sendFail')); QS.step = 'home'; QS.draw(); }
+  } catch (e) { toast(closedErr(e) ? T(QS.lang, 'closed') : T(QS.lang, 'sendFail')); QS.step = 'home'; QS.draw(); }
 }
 async function qrClick(e, ctx) {
   const b = e.target.closest('button'); if (!b || b.classList.contains('pen')) return;
@@ -1768,16 +1823,16 @@ async function qrClick(e, ctx) {
     QS.sending = true; QS.msg = ''; QS.draw();
     try {
       await waitAuth();
-      const photo = QS.pblob ? await storePhoto(QS.pblob) : null;
+      const photo = QS.pblob ? await storePhoto(QS.pblob, (rById(ctx.roomId) || {}).site) : null;
       const r = await createTicket({ roomId: ctx.roomId, issue: QS.issue, stall: QS.stall, note: QS.note.trim(), photo });
-      LS.set('rc-last-' + ctx.roomId, r.id); trackTicket(r.id);
+      if (!r.blind) { LS.set('rc-last-' + ctx.roomId, r.id); trackTicket(r.id); }   // 새 세계에서 묶은 사람은 그 접수를 읽지 못한다 — 따라가지 않는다
       if (QS.purl && !(photo && photo.url)) URL.revokeObjectURL(QS.purl);
-      Object.assign(QS, { res: { dup: r.dup, tid: r.id }, step: 'sent', pblob: null, purl: null, note: '', stall: null, sending: false });
-    } catch (err) { QS.sending = false; QS.msg = T(QS.lang, 'sendFail') + ' (' + errCode(err) + ')'; }
+      Object.assign(QS, { res: { dup: r.dup, tid: r.id, blind: !!r.blind }, step: 'sent', pblob: null, purl: null, note: '', stall: null, sending: false });
+    } catch (err) { QS.sending = false; QS.msg = closedErr(err) ? T(QS.lang, 'closed') : T(QS.lang, 'sendFail') + ' (' + errCode(err) + ')'; }
     QS.draw();
   }
   else if (act === 'clean') { addClean(ctx.roomId); QS.msg = ''; QS.step = 'thanks'; QS.draw(); }
-  else if (act === 'sosCancel') { if (QS.res) cancelTicket(QS.res.tid).catch(() => {}); LS.del('rc-last-' + ctx.roomId); QS.step = 'home'; QS.res = null; QS.draw(); }
+  else if (act === 'sosCancel') { if (P._tn() && QS.res) { try { await cancelTicket(QS.res.tid); } catch (err) { if (isPermDenied(err)) { toast(T(QS.lang, 'cancelBlocked')); QS.draw(); return; } } } else if (QS.res) cancelTicket(QS.res.tid).catch(() => {}); LS.del('rc-last-' + ctx.roomId); QS.step = 'home'; QS.res = null; QS.draw(); }
   else if (act === 'sosYes') triggerSos(ctx);
   else if (act === 'sos' && e.detail === 0) { QS.step = 'sosAsk'; QS.draw(); }
   else if (act === 'resolved') { addClean(ctx.roomId); LS.del('rc-last-' + ctx.roomId); QS.msg = T(QS.lang, 'resolvedThanks'); QS.step = 'thanks'; QS.res = null; QS.draw(); }
@@ -3330,7 +3385,8 @@ const retryHTML = () => specialCard('확인하지 못했습니다', '<p class="h
 const conflictHTML = () => specialCard('다시 로그인해 주세요', '<p class="hint" style="margin:0">로그인 상태가 바뀌었습니다. 로그아웃한 뒤 다시 로그인해 주세요.</p>', '<button type="button" class="b primary gate-btn" data-act="logout">로그아웃</button>');
 function specialHTML() {                                                  // 판정 결과가 「화면 대신 안내」인 경우. 이용객 접수 화면(QR)은 지금까지처럼 둔다
   const u = AUTH.user;
-  if (!AUTH.ready || !u || u.isAnonymous) return '';
+  if (!AUTH.ready || !u) return '';
+  if (u.isAnonymous) return custSpecialHTML();   // 새 세계 이용객(2-D): 다시 시도·세계 충돌 안내. 스위치가 꺼져 있으면 이 경우가 생기지 않아 ''
   if (AUTH.world === 'tenant' && !AUTH.tenantActive) return stoppedHTML();   // 정지(전면 중지) 안내가 먼저 — 이용객 접수 주소(#r-…)를 열어도 같다
   if (AUTH.world === 'tenant' && !TENANT_UI_READY) return notReadyHTML();
   if (S.full === 'customer') return '';
@@ -3369,7 +3425,7 @@ document.addEventListener('submit', async e => {
   finally { EM_BUSY = false; }
 });
 document.addEventListener('click', async e => {
-  const b = e.target.closest('[data-act="gtab"],[data-act="forgotPw"],[data-act="pwShow"],[data-act="verResend"],[data-act="verDone"],[data-act="roleRetry"]'); if (!b) return;
+  const b = e.target.closest('[data-act="gtab"],[data-act="forgotPw"],[data-act="pwShow"],[data-act="verResend"],[data-act="verDone"],[data-act="roleRetry"],[data-act="custReload"]'); if (!b) return;
   e.preventDefault(); e.stopPropagation();
   const a = b.dataset.act;
   if (a === 'gtab') {
@@ -3399,6 +3455,8 @@ document.addEventListener('click', async e => {
   } else if (a === 'roleRetry') {
     if (b.disabled) return; b.disabled = true;
     AUTH.ready = false; render(); await onUser(AUTHX.currentUser);
+  } else if (a === 'custReload') {
+    location.reload();   // 이용객: 익명 로그인은 그대로 남고, 처음부터 세계를 다시 확인한다
   }
 }, true);
 
@@ -3459,7 +3517,7 @@ document.addEventListener('click', e => {
 
 let UNSUBS = [], SUBS_ON = false;
 const TRACKED = {}, TRACK_UNSUB = {};
-let CUST_MERGE = null;
+let CUST_MERGE = null, CUST_SID = '';   // CUST_SID: 새 세계 이용객이 지금 보는 현장
 let MEMBERS_RAW = [];
 /* ---------- 처음 설정: 스페이스학운공장 · 담당자 조현행 (2026-10-12 대표 지시) ----------
    관리자 화면을 처음 열 때 한 번 만든다(config/seed 가 있으면 다시 만들지 않음 — 나중에 고치거나 지워도 되살리지 않는다).
@@ -3503,13 +3561,45 @@ function onMembersChanged() {
   if (!S.full && S.view === 'admin' && AS.sub === 'staff' && AS.el && document.body.contains(AS.el)) drawAdmMain();
 }
 function unsubAll() { UNSUBS.forEach(u => { try { u(); } catch (e) { /* 무시 */ } }); UNSUBS = []; SUBS_ON = false; Object.keys(TRACK_UNSUB).forEach(k => delete TRACK_UNSUB[k]); CUST_MERGE = null; }
-function trackTicket(id) {
+function trackTicket(id, sid) {
   if (!id || TRACK_UNSUB[id] || !AUTH.user || AUTH.role === 'admin' || AUTH.role === 'staff') return;
-  TRACK_UNSUB[id] = P.ticket(id).onSnapshot(s => { if (s.exists) TRACKED[id] = s.data(); else delete TRACKED[id]; if (CUST_MERGE) CUST_MERGE(); }, () => {});
+  const tref = P.ticket(id, sid || (P._tn() ? sidOfRoom(S.fullRoom) : undefined)); if (!tref) return;   // 새 세계: 현장을 모르면 따라가지 않는다
+  TRACK_UNSUB[id] = tref.onSnapshot(s => { if (s.exists) TRACKED[id] = s.data(); else delete TRACKED[id]; if (CUST_MERGE) CUST_MERGE(); }, () => {});
   UNSUBS.push(TRACK_UNSUB[id]);
+}
+/* ---------- 새 세계 구독 (조각 2-D) ----------
+   P.world 가 'tenant' 일 때만 부른다(TENANT_UI_READY 가 켜지고 판정이 새 세계로 정한 사용자).
+   이용객: 현장 문서 단건(onSnapshot) + config ops·ui 단건 + 본인 접수 단건(trackTicket). 목록 질의는 하지 않는다(규칙상 못 읽는다).
+   목록은 비어 있는 채로 DATA_READY — 이용객 화면은 TRACKED(본인 접수)만 TICKETS 에 합친다. */
+function startSubsTenantCfg() {
+  UNSUBS.push(P.cfg('ops').onSnapshot(s => { applyOps(s.exists ? s.data() : null); dispatch([]); }, () => {}));
+  UNSUBS.push(P.cfg('ui').onSnapshot(s => {
+    if (uiSaving || uiDirty || (s.metadata && s.metadata.hasPendingWrites)) return;
+    const next = normUI(s.exists ? s.data() : null);
+    if (JSON.stringify(next) !== JSON.stringify(ui)) { ui = next; rerender(); }
+  }, () => {}));
+}
+function startSubsTenant() {
+  if (AUTH.role !== 'customer') return;   // 담당자는 D-2 가 채운다 — 그 전에는 새 세계 담당자가 여기 오지 않는다(준비 중)
+  CUST_SID = sidOfRoom(S.fullRoom); SITES = []; SITES_READY = false;
+  if (CUST_SID) UNSUBS.push(P.site(CUST_SID).onSnapshot(s => {
+    SITES = s.exists ? [Object.assign({ id: CUST_SID }, s.data())] : []; rebuildRooms(); SITES_READY = true;
+    onSitesChanged();
+  }, e => { SITES_READY = true; toast('현장 정보를 불러오지 못했습니다 (' + errCode(e) + ')'); render(); }));
+  else SITES_READY = true;
+  startSubsTenantCfg();
+  CUST_MERGE = () => {
+    const next = Object.values(TRACKED);
+    const ev = DATA_READY ? diffEvents(TICKETS, next) : [];
+    TICKETS = next; DATA_READY = true; dispatch(ev);
+  };
+  DATA_READY = true;
+  if (S.fullRoom) { const last = LS.get('rc-last-' + S.fullRoom); if (last) trackTicket(last, CUST_SID); }
+  if (QS.res && QS.res.tid && !QS.res.blind) trackTicket(QS.res.tid, CUST_SID);
 }
 function startSubs() {
   unsubAll(); DATA_READY = false; TICKETS = []; MEMBERS_READY = false; SEED_CHECKED = false;
+  if (P._tn()) { startSubsTenant(); STORE = 'on'; SUBS_ON = true; updateEditbar(); return; }   // 새 세계(2-D): 현장 단건·본인 접수 단건
   UNSUBS.push(P.sitesCol().onSnapshot(q => {
     SITES = q.docs.map(d => Object.assign({ id: d.id }, d.data())); rebuildRooms(); SITES_READY = true;
     if (MEMBERS_RAW.length) setMembers(MEMBERS_RAW);
@@ -3571,11 +3661,31 @@ async function tenantStateOf(tid) {                                   // 준비 
   return { tenantName: r.exists && typeof r.data.name === 'string' ? r.data.name.slice(0, 60) : '', tenantActive: r.exists && r.data.status === 'active' };
 }
 const siteIdsOf = d => Array.isArray(d && d.siteIds) ? d.siteIds.filter(x => typeof x === 'string' && okSeg(x)).slice(0, 20) : [];
+/* 이용객이 연 QR 의 세계 (카드 8.1): siteIndex/{sid} get 한 건. 없으면 옛 세계(S01~S04), 있으면 tid → 새 세계.
+   permission-denied(규칙 3판이 살아 있는 기간)는 「새 구조 없음」으로 보고 옛 세계로 폴백한다 — 권한은 넓어지지 않는다(카드 2.2-6·P16).
+   그 밖의 오류(네트워크 등)는 던진다 → resolveRole 이 재시도 화면으로 보낸다(옛 세계로 단정하지 않는다). */
+async function customerWorld(roomId) {
+  const sid = sidOfRoom(roomId);
+  if (!sid) return { world: 'legacy', tid: 't00' };                          // 등록되지 않은 QR 모양: 지금처럼 옛 세계 화면이 안내한다
+  const r = await readDoc(P.as('tenant').siteIndex(sid));                    // denied 는 exists:false 로 돌아온다
+  if (r.exists && r.data && okTid(r.data.tid)) return { world: 'tenant', tid: r.data.tid };
+  return { world: 'legacy', tid: 't00' };
+}
+function custSpecialHTML() {                                                  // 새 세계 이용객: 세계를 확인하지 못했을 때·접수 주소가 다른 세계로 바뀌었을 때의 안내
+  if (S.full !== 'customer') return '';
+  if (AUTH.retry) return specialCard('확인하지 못했습니다', '<p class="hint" style="margin:0">인터넷 연결을 확인한 뒤 다시 시도해 주세요.</p>', '<button type="button" class="b primary gate-btn" data-act="roleRetry">다시 시도</button>');
+  if (AUTH.reason === 'conflict') return specialCard('다시 열어 주세요', '<p class="hint" style="margin:0">접수 주소가 바뀌었습니다. 화면을 다시 열어 주세요.</p>', '<button type="button" class="b primary gate-btn" data-act="custReload">다시 열기</button>');
+  return '';
+}
 async function resolveRole(u) {
   const out = o => Object.assign({ role: 'none', tier: '', world: 'legacy', tid: '', siteIds: [], kind: '', memberId: '', tenantName: '', tenantActive: true, emailVerified: !!(u && u.emailVerified), reason: '', retry: false }, o);
   const denied = reason => out({ role: 'denied', reason });
   if (!u) return out({});
-  if (u.isAnonymous) return out({ role: 'customer', tier: 'CU' });
+  if (u.isAnonymous) {
+    if (!(TENANT_UI_READY && S.full === 'customer')) return out({ role: 'customer', tier: 'CU' });   // 스위치가 꺼져 있거나 접수 화면이 아니면 지금과 같다(siteIndex 를 읽지 않는다)
+    try { const w = await customerWorld(S.fullRoom); return w.world === 'tenant' ? out({ role: 'customer', tier: 'CU', world: 'tenant', tid: w.tid }) : out({ role: 'customer', tier: 'CU' }); }
+    catch (e) { return out({ role: '', reason: 'error', retry: true }); }   // 그 밖의 오류는 재시도 화면(옛 세계로 단정하지 않는다)
+  }
   const email = String(u.email || '').toLowerCase();
   try {
     if (email.endsWith('@' + STAFF_MAIL_DOMAIN)) {                      // 가짜 도메인 계정 = ID/비밀번호 담당자
@@ -3626,13 +3736,15 @@ async function onUser(u) {
   const r = await resolveRole(u);
   if (seq !== AUTH_SEQ) return;                                           // 더 새 로그인 변화가 있으면 이 결과는 버린다
   applyRole(u, r);
+  if (TENANT_UI_READY && u && u.isAnonymous && S.full === 'customer') CUST_SID = sidOfRoom(S.fullRoom);
   if (AUTH.role === 'staff') SS.staffId = AUTH.memberId;
   else if (AUTH.role === 'admin') SS.staffId = LS.get('rc-staff') || AUTH.memberId || '';
   if (u) { const w = AUTH_WAIT; AUTH_WAIT = []; w.forEach(f => f()); }
   if (!u) {
     unsubAll(); TICKETS = []; DATA_READY = false; TN.list = null; TN.counter = undefined; TN.st = {};
     if (S.full === 'customer') { try { await AUTHX.signInAnonymously(); } catch (e) { toast('접속하지 못했습니다. 새로 고쳐 주세요. (' + errCode(e) + ')'); } return; }
-  } else if (AUTH.world === 'tenant' && (!TENANT_UI_READY || !AUTH.tenantActive)) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 화면이 준비되기 전·고객사가 정지된 동안에는 데이터를 읽지 않는다
+  } else if (u.isAnonymous && (AUTH.retry || AUTH.reason === 'conflict')) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 이용객: 세계를 정하지 못했거나 충돌 — 읽지 않는다(안내 화면)
+  else if (AUTH.world === 'tenant' && (!TENANT_UI_READY || !AUTH.tenantActive)) { unsubAll(); TICKETS = []; DATA_READY = false; }   // 새 세계 화면이 준비되기 전·고객사가 정지된 동안에는 데이터를 읽지 않는다
   else if ((AUTH.retry || AUTH.reason === 'unverified') && S.full !== 'customer') { unsubAll(); TICKETS = []; DATA_READY = false; }   // 인증 안내·다시 시도 화면에서는 데이터를 읽지 않는다
   else startSubs();
   render();
