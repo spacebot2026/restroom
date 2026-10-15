@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261015-1856';
+const BUILD = '20261015-2153';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -2416,7 +2416,7 @@ function checkStaffShape(role, siteIds) {                                 // 규
   return '';
 }
 // 실제 이메일 계정 발급. items = [{ name, email, role, siteIds, st? }], opt = { first: true }(운영자의 첫 HQ 지정: 1명만).
-// 실행 순서: ②Auth 계정(이미 가입된 이메일이면 그 이메일에서 멈춘다) → ④한 배치(staff + staffIndex [+ meta/firstHq | tenants.counts.staff]) → ③재설정 메일.
+// 실행 순서: ②Auth 계정(이미 가입된 이메일이면 그 이메일에서 멈춘다) → ④한 배치(staff + staffIndex [+ meta/firstHq {at, email} | tenants.counts.staff]) → ③재설정 메일.
 // (메일을 배치 뒤에 보내는 이유: 서버가 거부한 등록에는 초대 메일이 나가지 않는다.) st 는 재시도 상태 — 같은 st 로 다시 부르면 끝낸 단계는 건너뛴다.
 // 이메일마다 결과를 따로 돌려준다: result 'ok' | 'email-in-use' | 'failed' (ok 는 result === 'ok').
 //  · email-in-use: 이미 가입된 이메일(auth/email-already-in-use). 앱은 그 계정이 본인 것인지 남이 비밀번호를 알고 미리 만든 미인증 계정인지 알 수 없다(관리자급의 증명은 규칙의 email_verified 하나뿐).
@@ -2464,7 +2464,7 @@ async function issueMailBatch(tid, items, opt) {
             batch.set(T.staff(it.email), { role: it.role, siteIds: it.siteIds, name: it.name, kind: 'mail', active: true, at: now, byUid: me.uid });
             batch.set(T.staffIndex(it.email), { tid });
           }
-          if (first) batch.set(T.meta('firstHq'), { at: now });
+          if (first) batch.set(T.meta('firstHq'), { at: now, email: toWrite[0].email });   // 규칙 5판 F-7: 표식에 첫 HQ 이메일(소문자 — staff 문서 ID 와 같은 값)을 함께 쓴다. first 면 이 배치는 항상 1명
           else batch.update(T.tenantDoc(tid), { 'counts.staff': FV.increment(toWrite.length) });   // OP 의 첫 HQ 배치에는 counts 갱신이 없다(규칙상 OP 는 counts 를 못 고침)
           await batch.commit();
           toWrite.forEach(it => { it.st.written = true; });
