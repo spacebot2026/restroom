@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261013-1845';
+const BUILD = '20261015-1803';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1522,7 +1522,7 @@ async function createTicket({ roomId, issue, stall = null, note = '', photo = nu
   return { dup: false, id: t.id };
 }
 const addLog = (t, text) => (t.log || []).concat([{ t: Date.now(), text }]);
-function ackTicket(t, sid) { const s = sById(sid); return patchTicket(t.id, { status: 'going', ackAt: Date.now(), staffId: s.id, log: addLog(t, '출동 · ' + (s.id ? s.name : (AUTH.email || '관리자'))) }, 'ack'); }
+function ackTicket(t, sid) { const s = sById(sid); return patchTicket(t.id, { status: 'going', ackAt: Date.now(), staffId: s.id, log: addLog(t, '출동 · ' + (s.id ? s.name : '관리자')) }, 'ack'); }
 function completeTicket(t, { action, photo, note, by }) {
   if (action === '시설팀으로 넘김') {
     const fac = zoneStaff(rById(t.roomId), 'fac');
@@ -2226,7 +2226,7 @@ async function saveSite() {
   AS.savingSite = true;
   try {
     const prev = siteById(id);
-    await P.site(id).set({ id, name, address, rooms, roomIds: rooms.map(r => r.id), order: prev ? (prev.order || 0) : SITES.length, at: Date.now(), by: AUTH.email });
+    await P.site(id).set({ id, name, address, rooms, roomIds: rooms.map(r => r.id), order: prev ? (prev.order || 0) : SITES.length, at: Date.now(), by: (AUTH.user && AUTH.user.uid) || 'admin' });
     AS.edit = null; AS.site = id; LS.set('rc-site', id); AS.selRoom = '';
     toast(`‘${name}’ 현장을 저장했습니다 · 화장실 ${rooms.length}곳 QR 준비됨`);
   } catch (err) { toast('저장하지 못했습니다 (' + errCode(err) + ')'); }
@@ -2272,7 +2272,7 @@ async function addMember(name, email, role) {
   const id = newMemberId(), now = Date.now();
   const batch = DB.batch();
   batch.set(P.member(id), { id, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
-  batch.set(P.staff(email), { memberId: id, name, at: now, by: AUTH.email });
+  batch.set(P.staff(email), { memberId: id, name, at: now, by: (AUTH.user && AUTH.user.uid) || 'admin' });
   await batch.commit();
   STAFF_ACL[email] = { memberId: id, name };
   return 'ok';
@@ -2309,7 +2309,7 @@ async function addPwMember(name, id, role, pw) {
   try {
     const batch = DB.batch();
     batch.set(P.member(mid), { id: mid, name, role: role === '시설' ? '시설' : '청소', sites: [], floors: [], order: STAFF.length, at: now });
-    batch.set(P.staff(em), { memberId: mid, name, kind: 'pw', at: now, by: AUTH.email });
+    batch.set(P.staff(em), { memberId: mid, name, kind: 'pw', at: now, by: (AUTH.user && AUTH.user.uid) || 'admin' });
     saveVerOps(batch, id, v);
     await batch.commit();
   } catch (e) { return { r: 'err', msg: '계정은 만들어졌지만 담당자로 저장하지 못했습니다 (' + errCode(e) + '). 한 번 더 시도해 주세요', code: errCode(e) }; }
@@ -2321,7 +2321,7 @@ async function setMemberLogin(m, id, pw) {
   const v = await createLoginAuto(id, pw), em = loginEmail(id, v), old = memberLogins(m.id).filter(loginIdOf);
   const batch = DB.batch();
   old.forEach(k => batch.delete(P.staff(k)));
-  batch.set(P.staff(em), { memberId: m.id, name: m.name, kind: 'pw', at: Date.now(), by: AUTH.email });
+  batch.set(P.staff(em), { memberId: m.id, name: m.name, kind: 'pw', at: Date.now(), by: (AUTH.user && AUTH.user.uid) || 'admin' });
   saveVerOps(batch, id, v);
   await batch.commit();
   old.forEach(k => { delete STAFF_ACL[k]; });
@@ -3481,7 +3481,7 @@ async function ensureSeed() {
       const named = MEMBERS_RAW.find(m => m.name === '조현행');
       if (!MEMBERS_RAW.some(m => m.owner) && named) await P.member(named.id).update({ owner: true });
       else if (!MEMBERS_RAW.some(m => m.owner)) await P.member(OWNER_ID).set({ id: OWNER_ID, name: '조현행', role: '청소', sites: [], floors: [], owner: true, order: 0, at: Date.now() });
-      await P.cfg('seed').set({ at: Date.now(), by: AUTH.email, site: SEED_SITE.id, owner: OWNER_ID });
+      await P.cfg('seed').set({ at: Date.now(), by: (AUTH.user && AUTH.user.uid) || 'admin', site: SEED_SITE.id, owner: OWNER_ID });
     }
     const owner = MEMBERS_RAW.find(m => m.owner) || MEMBERS_RAW.find(m => m.name === '조현행') || (flag.exists ? null : { id: OWNER_ID });
     if (owner && !AUTH.memberId && AUTH.email) {
