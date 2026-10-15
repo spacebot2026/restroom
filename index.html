@@ -1084,7 +1084,7 @@ input.num,
 'use strict';
 
 /* ================= 기본 ================= */
-const BUILD = '20261015-1815';
+const BUILD = '20261015-1831';
 const BASE_URL = 'https://spacebot2026.github.io/restroom/';
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1897,6 +1897,7 @@ function mountStaff(el, ctx) {
     const list = { wait, mine, done }[SS.tab] || wait;
     const box = el.querySelector('.st-list'), top = box.scrollTop;
     box.innerHTML = !DATA_READY ? '<p class="loading">불러오는 중…</p>' : list.length ? list.map(t => staffCard(t)).join('') : `<p class="st-empty">${SS.tab === 'wait' ? '대기 중인 접수가 없습니다.<br>새 접수가 오면 위쪽에 알림이 뜹니다.' : SS.tab === 'mine' ? '지금 처리 중인 건이 없습니다.' : '오늘 완료한 건이 아직 없습니다.'}</p>`;
+    if (Object.keys(ST_ERR).length) box.insertAdjacentHTML('afterbegin', stErrHTML());   // 새 세계: 읽지 못한 현장만 표시(옛 세계는 ST_ERR 가 비어 있다)
     box.scrollTop = top;
     SS.fresh = '';
   };
@@ -1988,7 +1989,7 @@ async function staffClick(e) {
     const t = tById(SS.sheet); if (!t || !SS.act || SS.saving) return;
     SS.saving = true; drawSheet();
     try {
-      const photo = SS.pblob ? await storePhoto(SS.pblob) : null;
+      const photo = SS.pblob ? await storePhoto(SS.pblob, t.siteId) : null;
       const a = SS.act;
       await completeTicket(t, { action: a, photo, note: SS.note.trim(), by: SS.staffId });
       SS.sheet = null; SS.saving = false; SS.pblob = null; SS.purl = null; drawSheet();
@@ -3571,6 +3572,45 @@ function trackTicket(id, sid) {
    P.world 가 'tenant' 일 때만 부른다(TENANT_UI_READY 가 켜지고 판정이 새 세계로 정한 사용자).
    이용객: 현장 문서 단건(onSnapshot) + config ops·ui 단건 + 본인 접수 단건(trackTicket). 목록 질의는 하지 않는다(규칙상 못 읽는다).
    목록은 비어 있는 채로 DATA_READY — 이용객 화면은 TRACKED(본인 접수)만 TICKETS 에 합친다. */
+/* ---------- 새 세계 담당자(ST) 구독 (조각 2-D, 카드 8.4) ----------
+   맡은 현장(siteIds, 최대 20)마다 접수 질의(createdAt 내림차순 limit N)와 「깨끗해요」 질의, 현장 문서는 단건(규칙: 현장 list 는 HQ 만),
+   members 는 고객사 전체(규칙상 ST 도 읽음), config ops·ui 단건. N = 현장당 300, 현장이 늘면 줄여 합계 600 이하(지금 읽는 규모와 같다).
+   현장별 결과를 한 배열로 합쳐 지금 코드(diffEvents·dispatch)에 넘긴다. 한 현장의 질의가 permission-denied·오류여도 다른 현장은 계속하고, 그 현장만 오류를 표시한다(ST_ERR).
+   부르지 않는 것: ticketAdmin(관리자 메모 — HQ·SM 몫) · demoClear · 옛 sites 컬렉션 전체 구독 · staff 목록 · tenants 목록 · 컬렉션 그룹. */
+const ST_ERR = {};
+const stErrHTML = () => `<p class="st-empty" role="alert">${Object.keys(ST_ERR).map(s => '현장 ' + esc(s) + ' 을(를) 불러오지 못했습니다 (' + esc(ST_ERR[s]) + ')').join('<br>')}</p>`;
+function startSubsTenantStaff() {
+  const sids = (AUTH.siteIds || []).filter(okSid).slice(0, 20);
+  const N = sids.length ? Math.max(1, Math.min(300, Math.floor(600 / sids.length))) : 0;
+  const part = {}, got = {}, fbPart = {}, siteDoc = {};
+  Object.keys(ST_ERR).forEach(k => delete ST_ERR[k]);
+  SITES = []; SITES_READY = !sids.length; DATA_READY = !sids.length;
+  const mergeTickets = () => {
+    if (!sids.every(s => got[s])) return;
+    const next = [].concat(...sids.map(s => part[s] || [])).sort((a, b) => b.createdAt - a.createdAt);
+    next.forEach(t => { [t.photo, t.afterPhoto].forEach(p => { if (p && p.pid && t.siteId) PHOTO_SITE[p.pid] = t.siteId; }); });   // 사진 문서는 접수가 속한 현장 아래에 있다
+    const ev = DATA_READY ? diffEvents(TICKETS, next) : [];
+    TICKETS = next; DATA_READY = true; dispatch(ev);
+  };
+  sids.forEach(sid => {
+    UNSUBS.push(P.site(sid).onSnapshot(s => {
+      if (s.exists) siteDoc[sid] = Object.assign({ id: sid }, s.data()); else delete siteDoc[sid];
+      SITES = Object.keys(siteDoc).map(k => siteDoc[k]); rebuildRooms(); SITES_READY = true;
+      if (MEMBERS_RAW.length) setMembers(MEMBERS_RAW);
+      onSitesChanged();
+    }, e => { ST_ERR[sid] = errCode(e); SITES_READY = true; onSitesChanged(); }));
+    UNSUBS.push(P.tickets(sid).orderBy('createdAt', 'desc').limit(N).onSnapshot(q => {
+      part[sid] = q.docs.map(d => d.data()); got[sid] = true; delete ST_ERR[sid]; mergeTickets();
+    }, e => { part[sid] = []; got[sid] = true; ST_ERR[sid] = errCode(e); toast('현장 ' + sid + ' 접수 기록을 불러오지 못했습니다 (' + errCode(e) + ')'); mergeTickets(); }));
+    UNSUBS.push(P.feedbackCol(sid).orderBy('day', 'desc').limit(100).onSnapshot(q => {
+      const f = {}, day = kstDate();
+      q.docs.forEach(d => { const x = d.data(); if (x.day === day) f[x.roomId] = x.n || 0; });
+      fbPart[sid] = f; FEEDBACK = Object.assign({}, ...sids.map(s => fbPart[s] || {})); dispatch([]);
+    }, () => {}));
+  });
+  UNSUBS.push(P.membersCol().onSnapshot(q => { MEMBERS_RAW = q.docs.map(d => Object.assign({ id: d.id }, d.data())); MEMBERS_READY = true; setMembers(MEMBERS_RAW); onMembersChanged(); }, () => {}));
+  startSubsTenantCfg();
+}
 function startSubsTenantCfg() {
   UNSUBS.push(P.cfg('ops').onSnapshot(s => { applyOps(s.exists ? s.data() : null); dispatch([]); }, () => {}));
   UNSUBS.push(P.cfg('ui').onSnapshot(s => {
@@ -3580,7 +3620,8 @@ function startSubsTenantCfg() {
   }, () => {}));
 }
 function startSubsTenant() {
-  if (AUTH.role !== 'customer') return;   // 담당자는 D-2 가 채운다 — 그 전에는 새 세계 담당자가 여기 오지 않는다(준비 중)
+  if (AUTH.role === 'staff') { startSubsTenantStaff(); return; }   // 새 세계 담당자(D-2): 현장별 구독
+  if (AUTH.role !== 'customer') return;
   CUST_SID = sidOfRoom(S.fullRoom); SITES = []; SITES_READY = false;
   if (CUST_SID) UNSUBS.push(P.site(CUST_SID).onSnapshot(s => {
     SITES = s.exists ? [Object.assign({ id: CUST_SID }, s.data())] : []; rebuildRooms(); SITES_READY = true;
